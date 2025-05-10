@@ -1,7 +1,66 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global styles for Healthcare Appointment System */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+/* Angular Material + Tailwind integration */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", "Roboto", "Helvetica Neue", sans-serif;
+  color: #333;
+  background-color: #f9fafb;
+}
+
+/* Custom Angular Material styling */
+.mat-mdc-card {
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.mat-mdc-button.mat-primary {
+  background-color: #1976d2;
+}
+
+/* Snackbar styling */
+.success-snackbar {
+  background-color: #4caf50 !important;
+  color: white !important;
+}
+
+.error-snackbar {
+  background-color: #f44336 !important;
+  color: white !important;
+}
+
+/* Custom color classes */
+.bg-primary-light {
+  background-color: #e3f2fd;
+}
+
+.text-primary {
+  color: #1976d2 !important;
+}
+
+/* Healthcare specific overrides */
+.appointment-card {
+  border-left: 4px solid #1976d2;
+  transition: transform 0.2s;
+}
+
+.appointment-card:hover {
+  transform: translateY(-2px);
+}
+
+.appointment-card.completed {
+  border-left-color: #4caf50;
+}
+
+.appointment-card.cancelled {
+  border-left-color: #f44336;
+}
