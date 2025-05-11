@@ -27,7 +27,8 @@ import { AppointmentStatus } from '../../core/models/appointment.model';
 
 @Component({
   selector: 'app-create-appointment',
-  standalone: true,  imports: [
+  standalone: true,
+  imports: [
     CommonModule,
     ReactiveFormsModule,
     RouterModule,
@@ -167,15 +168,19 @@ import { AppointmentStatus } from '../../core/models/appointment.model';
                   rows="4"
                   placeholder="Additional information about your appointment"
                 ></textarea>
-              </mat-form-field>              <!-- Reminder Option -->
+              </mat-form-field>
+              <!-- Reminder Option -->
               <div class="w-full md:col-span-2 flex items-center">
                 <mat-checkbox formControlName="createReminder" color="primary">
                   Create a reminder for this appointment
                 </mat-checkbox>
               </div>
-              
+
               <!-- Custom reminder message (only shown when createReminder is checked) -->
-              <mat-form-field *ngIf="appointmentForm.get('createReminder')?.value" class="w-full md:col-span-2">
+              <mat-form-field
+                *ngIf="appointmentForm.get('createReminder')?.value"
+                class="w-full md:col-span-2"
+              >
                 <mat-label>Custom Reminder Message (optional)</mat-label>
                 <input
                   matInput
@@ -184,15 +189,18 @@ import { AppointmentStatus } from '../../core/models/appointment.model';
                 />
                 <mat-hint>Custom message to use for your reminder</mat-hint>
               </mat-form-field>
-              
+
               <!-- Status Preview -->
               <div class="w-full md:col-span-2 mt-4 mb-2">
-                <p class="text-sm font-medium text-gray-500 mb-2">Initial Status:</p>
+                <p class="text-sm font-medium text-gray-500 mb-2">
+                  Initial Status:
+                </p>
                 <mat-chip-set>
                   <mat-chip class="status-pending">Pending</mat-chip>
                 </mat-chip-set>
                 <p class="text-xs text-gray-500 mt-2">
-                  New appointments will be marked as "Pending" until confirmed by the staff.
+                  New appointments will be marked as "Pending" until confirmed
+                  by the staff.
                 </p>
               </div>
             </div>
@@ -303,7 +311,8 @@ export class CreateAppointmentComponent implements OnInit {
       defaultEndTime = `${endHours.toString().padStart(2, '0')}:${endMinutes
         .toString()
         .padStart(2, '0')}`;
-    }    this.appointmentForm = this.fb.group({
+    }
+    this.appointmentForm = this.fb.group({
       title: ['', Validators.required],
       doctorId: ['', this.isPatient ? Validators.required : null],
       date: [defaultDate || '', Validators.required],
@@ -395,7 +404,7 @@ export class CreateAppointmentComponent implements OnInit {
         this.isSubmitting = false;
       },
     });
-  }  // Helper method to create a reminder
+  } // Helper method to create a reminder
   private createAppointmentReminder(
     appointment: any,
     reminderDate: Date
@@ -403,33 +412,40 @@ export class CreateAppointmentComponent implements OnInit {
     // Use custom message if provided, otherwise use the default
     const customMessage = this.appointmentForm.get('reminderMessage')?.value;
     let message = customMessage;
-    
+
     if (!customMessage) {
-      message = `Reminder: You have an appointment "${appointment.title}" scheduled for ${new Date(appointment.startTime).toLocaleString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })}`;
+      message = `Reminder: You have an appointment "${
+        appointment.title
+      }" scheduled for ${new Date(appointment.startTime).toLocaleString(
+        'en-US',
+        {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }
+      )}`;
     }
-    
-    this.reminderService.createCustomReminder(
-      appointment.id,
-      message,
-      reminderDate
-    ).subscribe({
-      next: () => {
-        console.log('Reminder created successfully');
-      },
-      error: (err) => {
-        console.error('Error creating reminder', err);
-        // Create a notification even if there's an error with the reminder
-        // This ensures the user knows about their appointment
-        this.snackBar.open('Appointment created, but reminder setup failed', 'Close', {
-          duration: 5000
-        });
-      }
-    });
+
+    this.reminderService
+      .createCustomReminder(appointment.id, message, reminderDate)
+      .subscribe({
+        next: () => {
+          console.log('Reminder created successfully');
+        },
+        error: (err) => {
+          console.error('Error creating reminder', err);
+          // Create a notification even if there's an error with the reminder
+          // This ensures the user knows about their appointment
+          this.snackBar.open(
+            'Appointment created, but reminder setup failed',
+            'Close',
+            {
+              duration: 5000,
+            }
+          );
+        },
+      });
   }
 }

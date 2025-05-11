@@ -32,7 +32,8 @@ import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-appointment-calendar',
-  standalone: true,  imports: [
+  standalone: true,
+  imports: [
     CommonModule,
     RouterModule,
     MatCardModule,
@@ -68,7 +69,8 @@ import { Router } from '@angular/router';
     </div>
   `,
   styles: [
-    `      ::ng-deep .fc .fc-button-primary {
+    `
+      ::ng-deep .fc .fc-button-primary {
         background-color: #1976d2;
         border-color: #1976d2;
       }
@@ -89,19 +91,20 @@ import { Router } from '@angular/router';
         font-size: 0.85em;
         padding: 3px;
       }
-      
+
       ::ng-deep .fc-event-title {
         font-weight: 500;
       }
-      
+
       ::ng-deep .fc-today-button {
         text-transform: capitalize;
       }
-      
+
       ::ng-deep .fc-col-header-cell {
         background-color: #f5f5f5;
         font-weight: 500;
-      }::ng-deep .fc-event.status-confirmed {
+      }
+      ::ng-deep .fc-event.status-confirmed {
         background-color: #e3f2fd !important;
         border-color: #bbdefb !important;
         color: #1976d2 !important;
@@ -146,7 +149,8 @@ export class AppointmentCalendarComponent implements OnInit {
     selectable: true, // Allow date selection for new appointments
     selectMirror: true,
     dayMaxEvents: true,
-    events: [],    eventClick: this.handleEventClick.bind(this),
+    events: [],
+    eventClick: this.handleEventClick.bind(this),
     eventClassNames: this.handleEventClassNames.bind(this),
     select: this.handleDateSelect.bind(this),
     eventDrop: this.handleEventDrop.bind(this),
@@ -176,7 +180,7 @@ export class AppointmentCalendarComponent implements OnInit {
     this.appointmentService
       .getAppointmentsByUser(this.currentUser.id)
       .subscribe((appointments) => {
-        this.appointments = appointments;        // Format appointments for the calendar
+        this.appointments = appointments; // Format appointments for the calendar
         const events = this.appointments.map((appointment) => {
           return {
             id: appointment.id,
@@ -188,7 +192,7 @@ export class AppointmentCalendarComponent implements OnInit {
               patientId: appointment.patientId,
               doctorId: appointment.doctorId,
               notes: appointment.notes,
-              originalTitle: appointment.title
+              originalTitle: appointment.title,
             },
           };
         });
@@ -200,11 +204,12 @@ export class AppointmentCalendarComponent implements OnInit {
   handleEventClick(clickInfo: EventClickArg): void {
     const appointmentId = clickInfo.event.id;
     this.router.navigate(['/appointments', appointmentId]);
-  }  handleEventClassNames(arg: any): string[] {
+  }
+  handleEventClassNames(arg: any): string[] {
     const status = arg.event.extendedProps.status;
     return [`status-${status.toLowerCase()}`];
   }
-  
+
   /**
    * Format the event display to show additional details
    */
@@ -212,9 +217,9 @@ export class AppointmentCalendarComponent implements OnInit {
     const status = appointment.status.charAt(0).toUpperCase();
     const time = new Date(appointment.startTime).toLocaleTimeString([], {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-    
+
     return `[${status}] ${time} - ${appointment.title}`;
   }
 
@@ -276,7 +281,7 @@ export class AppointmentCalendarComponent implements OnInit {
   }
   /**
    * Handle when an event is resized to change its duration
-   */  handleEventResize(resizeInfo: any): void {
+   */ handleEventResize(resizeInfo: any): void {
     const appointmentId = resizeInfo.event.id;
     const newEndTime = resizeInfo.event.end;
 
@@ -314,9 +319,15 @@ export class AppointmentCalendarComponent implements OnInit {
     const event = info.event;
     const status = event.extendedProps.status;
     const originalTitle = event.extendedProps.originalTitle;
-    const startTime = event.start?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const endTime = event.end?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
+    const startTime = event.start?.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const endTime = event.end?.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
     // Create tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'appointment-tooltip';
@@ -332,28 +343,28 @@ export class AppointmentCalendarComponent implements OnInit {
     tooltip.style.borderRadius = '4px';
     tooltip.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16)';
     tooltip.style.display = 'none';
-    
+
     // Append tooltip to body
     document.body.appendChild(tooltip);
-    
+
     // Show tooltip on mouseover
     info.el.addEventListener('mouseover', (e: MouseEvent) => {
       tooltip.style.display = 'block';
       tooltip.style.left = `${e.pageX + 10}px`;
       tooltip.style.top = `${e.pageY + 10}px`;
     });
-    
+
     // Move tooltip with cursor
     info.el.addEventListener('mousemove', (e: MouseEvent) => {
       tooltip.style.left = `${e.pageX + 10}px`;
       tooltip.style.top = `${e.pageY + 10}px`;
     });
-    
+
     // Hide tooltip on mouseout
     info.el.addEventListener('mouseout', () => {
       tooltip.style.display = 'none';
     });
-    
+
     // Clean up tooltip when event is removed
     info.el.addEventListener('remove', () => {
       document.body.removeChild(tooltip);

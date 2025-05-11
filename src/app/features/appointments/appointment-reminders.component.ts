@@ -16,11 +16,15 @@ import {
   Reminder,
 } from '../../core/services/reminder.service';
 import { AppointmentService } from '../../core/services/appointment.service';
-import { Appointment, AppointmentStatus } from '../../core/models/appointment.model';
+import {
+  Appointment,
+  AppointmentStatus,
+} from '../../core/models/appointment.model';
 
 @Component({
   selector: 'app-appointment-reminders',
-  standalone: true,  imports: [
+  standalone: true,
+  imports: [
     CommonModule,
     MatCardModule,
     MatIconModule,
@@ -35,29 +39,36 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
     RouterModule,
   ],
   styleUrls: ['./appointment-status-colors.css'],
-  styles: [`
-    .reminder-list .mat-mdc-list-item {
-      height: auto;
-      margin-bottom: 8px;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    
-    .mat-mdc-form-field-subscript-wrapper {
-      display: none;
-    }
-    
-    ::ng-deep .mat-mdc-list-item-unscoped-content {
-      width: 100%;
-      padding: 8px 0;
-    }
-  `],  template: `
+  styles: [
+    `
+      .reminder-list .mat-mdc-list-item {
+        height: auto;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+
+      ::ng-deep .mat-mdc-list-item-unscoped-content {
+        width: 100%;
+        padding: 8px 0;
+      }
+    `,
+  ],
+  template: `
     <div class="container mx-auto p-6">
       <header class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">Appointment Reminders</h1>
-        <p class="text-gray-600">View and manage your upcoming appointment reminders</p>
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">
+          Appointment Reminders
+        </h1>
+        <p class="text-gray-600">
+          View and manage your upcoming appointment reminders
+        </p>
       </header>
-      
+
       <mat-card>
         <mat-card-header>
           <mat-card-title>
@@ -66,17 +77,23 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                 <!-- Filter dropdown -->
                 <mat-form-field appearance="outline" class="w-36">
                   <mat-label>Filter by</mat-label>
-                  <mat-select [(ngModel)]="selectedFilter" (selectionChange)="onFilterChange()">
+                  <mat-select
+                    [(ngModel)]="selectedFilter"
+                    (selectionChange)="onFilterChange()"
+                  >
                     <mat-option value="all">All Reminders</mat-option>
                     <mat-option value="unread">Unread Only</mat-option>
                     <mat-option value="upcoming">Upcoming Only</mat-option>
                   </mat-select>
                 </mat-form-field>
-                
+
                 <!-- Sort dropdown -->
                 <mat-form-field appearance="outline" class="w-36">
                   <mat-label>Sort by</mat-label>
-                  <mat-select [(ngModel)]="selectedSort" (selectionChange)="onFilterChange()">
+                  <mat-select
+                    [(ngModel)]="selectedSort"
+                    (selectionChange)="onFilterChange()"
+                  >
                     <mat-option value="newest">Newest First</mat-option>
                     <mat-option value="oldest">Oldest First</mat-option>
                   </mat-select>
@@ -109,7 +126,8 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
               schedule
             </mat-icon>
             <p class="mt-4">Loading reminders...</p>
-          </div>          <!-- Empty state -->
+          </div>
+          <!-- Empty state -->
           <div
             *ngIf="!isLoading && reminders.length === 0"
             class="flex flex-col items-center justify-center p-8 text-gray-500"
@@ -118,10 +136,12 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
               >notifications_off</mat-icon
             >
             <!-- Show different message based on filter -->
-            <ng-container *ngIf="selectedFilter === 'all' && allReminders.length === 0">
+            <ng-container
+              *ngIf="selectedFilter === 'all' && allReminders.length === 0"
+            >
               <p class="mt-4 text-lg">You have no reminders</p>
               <p class="text-sm text-center mt-2 max-w-md">
-                Reminders will appear here when you have upcoming appointments. 
+                Reminders will appear here when you have upcoming appointments.
                 Create a new appointment to get started.
               </p>
               <div class="flex space-x-4 mt-4">
@@ -143,9 +163,14 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                 </button>
               </div>
             </ng-container>
-            
+
             <!-- No matches for filters -->
-            <ng-container *ngIf="selectedFilter !== 'all' || (selectedFilter === 'all' && allReminders.length > 0)">
+            <ng-container
+              *ngIf="
+                selectedFilter !== 'all' ||
+                (selectedFilter === 'all' && allReminders.length > 0)
+              "
+            >
               <p class="mt-4 text-lg">No reminders match your filters</p>
               <p class="text-sm text-center mt-2">
                 Try changing your filter settings to see more reminders.
@@ -159,11 +184,17 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                 Show All Reminders ({{ allReminders.length }})
               </button>
             </ng-container>
-          </div><mat-list *ngIf="!isLoading && reminders.length > 0" class="reminder-list">
+          </div>
+          <mat-list
+            *ngIf="!isLoading && reminders.length > 0"
+            class="reminder-list"
+          >
             <ng-container *ngFor="let reminder of reminders; let last = last">
               <mat-list-item
                 class="py-3"
-                [ngClass]="{ 'bg-blue-50 border-l-4 border-blue-500': !reminder.isRead }"
+                [ngClass]="{
+                  'bg-blue-50 border-l-4 border-blue-500': !reminder.isRead
+                }"
               >
                 <div class="flex w-full items-start">
                   <div class="flex-shrink-0 mr-4">
@@ -174,13 +205,20 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                       }"
                       [matTooltip]="reminder.isRead ? 'Read' : 'Unread'"
                     >
-                      {{ reminder.isRead ? 'notifications_none' : 'notifications_active' }}
+                      {{
+                        reminder.isRead
+                          ? 'notifications_none'
+                          : 'notifications_active'
+                      }}
                     </mat-icon>
                   </div>
                   <div class="flex-grow">
                     <div class="flex justify-between items-start">
                       <div>
-                        <h3 class="font-semibold" [ngClass]="{'text-blue-800': !reminder.isRead}">
+                        <h3
+                          class="font-semibold"
+                          [ngClass]="{ 'text-blue-800': !reminder.isRead }"
+                        >
                           {{ reminder.message }}
                           <span
                             *ngIf="!reminder.isRead"
@@ -190,7 +228,9 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                           </span>
                         </h3>
                         <p class="text-sm text-gray-600 mt-1">
-                          <mat-icon class="align-text-bottom text-xs mr-1">schedule</mat-icon>
+                          <mat-icon class="align-text-bottom text-xs mr-1"
+                            >schedule</mat-icon
+                          >
                           {{ getReminderDateFormatted(reminder) }}
                         </p>
                       </div>
@@ -216,16 +256,22 @@ import { Appointment, AppointmentStatus } from '../../core/models/appointment.mo
                     </div>
 
                     <div
-                      *ngIf="getAppointment(reminder.appointmentId) as appointment"
+                      *ngIf="
+                        getAppointment(reminder.appointmentId) as appointment
+                      "
                       class="mt-3 flex flex-wrap items-center justify-between"
                     >
                       <div class="flex items-center">
                         <mat-chip-set>
-                          <mat-chip [class]="getStatusClass(reminder.appointmentId)">
+                          <mat-chip
+                            [class]="getStatusClass(reminder.appointmentId)"
+                          >
                             {{ appointment.status | titlecase }}
                           </mat-chip>
                         </mat-chip-set>
-                        <span class="text-sm ml-2">{{ appointment.title }}</span>
+                        <span class="text-sm ml-2">{{
+                          appointment.title
+                        }}</span>
                       </div>
                       <a
                         [routerLink]="['/appointments', appointment.id]"
@@ -252,14 +298,14 @@ export class AppointmentRemindersComponent implements OnInit {
   allReminders: Reminder[] = []; // Store all reminders for filtering
   appointments: { [key: string]: Appointment } = {};
   isLoading: boolean = true;
-  
+
   // Filter options
   selectedFilter: 'all' | 'unread' | 'upcoming' = 'all';
   selectedSort: 'newest' | 'oldest' = 'newest';
-  
+
   // For easy access in template
   AppointmentStatus = AppointmentStatus;
-  
+
   constructor(
     private reminderService: ReminderService,
     private appointmentService: AppointmentService
@@ -272,11 +318,12 @@ export class AppointmentRemindersComponent implements OnInit {
     this.reminderService.reminders$.subscribe(() => {
       this.loadReminders();
     });
-  }  loadReminders(): void {
+  }
+  loadReminders(): void {
     this.isLoading = true;
     this.reminderService.getReminders().subscribe((reminders) => {
       this.allReminders = reminders;
-      
+
       // Apply filtering
       this.applyFilters();
 
@@ -352,51 +399,53 @@ export class AppointmentRemindersComponent implements OnInit {
       this.loadReminders();
     });
   }
-  
+
   applyFilters(): void {
     let filteredReminders = [...this.allReminders];
-    
+
     // Apply filter based on selected option
-    switch(this.selectedFilter) {
+    switch (this.selectedFilter) {
       case 'unread':
-        filteredReminders = filteredReminders.filter(r => !r.isRead);
+        filteredReminders = filteredReminders.filter((r) => !r.isRead);
         break;
       case 'upcoming':
         // Filter only upcoming reminders (reminder date is in the future)
         const now = new Date();
-        filteredReminders = filteredReminders.filter(r => new Date(r.reminderDate) > now);
+        filteredReminders = filteredReminders.filter(
+          (r) => new Date(r.reminderDate) > now
+        );
         break;
       case 'all':
       default:
         // No filtering needed
         break;
     }
-    
+
     // Apply sorting
     filteredReminders.sort((a, b) => {
       const dateA = new Date(a.reminderDate).getTime();
       const dateB = new Date(b.reminderDate).getTime();
-      
+
       if (this.selectedSort === 'newest') {
         return dateB - dateA; // Newest first
       } else {
         return dateA - dateB; // Oldest first
       }
     });
-    
+
     this.reminders = filteredReminders;
   }
-  
+
   // Method to handle filter change
   onFilterChange(): void {
     this.applyFilters();
   }
-  
+
   // Method to get status class for appointment
   getStatusClass(appointmentId: string): string {
     const appointment = this.appointments[appointmentId];
     if (!appointment) return '';
-    
+
     return 'status-' + appointment.status.toLowerCase();
   }
 }

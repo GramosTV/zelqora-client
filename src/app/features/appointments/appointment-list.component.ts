@@ -29,7 +29,9 @@ import { User, UserRole } from '../../core/models/user.model';
     MatTableModule,
     MatChipsModule,
     MatTooltipModule,
-    DatePipe,  ],  styleUrls: ['./appointment-status-colors.css'],
+    DatePipe,
+  ],
+  styleUrls: ['./appointment-status-colors.css'],
   styles: [
     `
       .mat-column-actions {
@@ -124,9 +126,7 @@ import { User, UserRole } from '../../core/models/user.model';
                   <th mat-header-cell *matHeaderCellDef>Status</th>
                   <td mat-cell *matCellDef="let appointment">
                     <mat-chip-set>
-                      <mat-chip
-                        class="status-{{ appointment.status }}"
-                      >
+                      <mat-chip class="status-{{ appointment.status }}">
                         {{ appointment.status | titlecase }}
                       </mat-chip>
                     </mat-chip-set>
@@ -235,9 +235,7 @@ import { User, UserRole } from '../../core/models/user.model';
                   <th mat-header-cell *matHeaderCellDef>Status</th>
                   <td mat-cell *matCellDef="let appointment">
                     <mat-chip-set>
-                      <mat-chip
-                        class="status-{{ appointment.status }}"
-                      >
+                      <mat-chip class="status-{{ appointment.status }}">
                         {{ appointment.status | titlecase }}
                       </mat-chip>
                     </mat-chip-set>
