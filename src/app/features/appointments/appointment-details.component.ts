@@ -20,8 +20,7 @@ import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-appointment-details',
-  standalone: true,
-  imports: [
+  standalone: true,  imports: [
     CommonModule,
     RouterModule,
     MatCardModule,
@@ -32,6 +31,7 @@ import { RouterModule } from '@angular/router';
     MatMenuModule,
     MatProgressSpinnerModule,
   ],
+  styleUrls: ['./appointment-status-colors.css'],
   template: `
     <div class="appointment-details" *ngIf="appointment">
       <header class="mb-6 flex justify-between items-start">
@@ -39,9 +39,8 @@ import { RouterModule } from '@angular/router';
           <div class="flex items-center">
             <h1 class="text-2xl font-bold text-gray-800 mr-4">
               {{ appointment.title }}
-            </h1>
-            <mat-chip-set>
-              <mat-chip [color]="getStatusColor(appointment.status)">
+            </h1>            <mat-chip-set>
+              <mat-chip class="status-{{ appointment.status }}">
                 {{ appointment.status | titlecase }}
               </mat-chip>
             </mat-chip-set>

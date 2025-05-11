@@ -29,16 +29,17 @@ import { User, UserRole } from '../../core/models/user.model';
     MatTableModule,
     MatChipsModule,
     MatTooltipModule,
-    DatePipe,
-  ],
+    DatePipe,  ],
+  styleUrls: ['./appointment-status-colors.css'],
   styles: [
     `
-      .status-confirmed {
-        background-color: #e3f2fd !important;
-        color: #1976d2 !important;
+      .mat-column-actions {
+        width: 120px;
+        text-align: center;
       }
-      .status-pending {
-        background-color: #fff8e1 !important;
+      .mat-column-status {
+        width: 140px;
+      }
         color: #f57c00 !important;
       }
       .status-cancelled {
@@ -135,8 +136,7 @@ import { User, UserRole } from '../../core/models/user.model';
                   <td mat-cell *matCellDef="let appointment">
                     <mat-chip-set>
                       <mat-chip
-                        [color]="getStatusColor(appointment.status)"
-                        selected
+                        class="status-{{ appointment.status }}"
                       >
                         {{ appointment.status | titlecase }}
                       </mat-chip>
@@ -247,8 +247,7 @@ import { User, UserRole } from '../../core/models/user.model';
                   <td mat-cell *matCellDef="let appointment">
                     <mat-chip-set>
                       <mat-chip
-                        [color]="getStatusColor(appointment.status)"
-                        selected
+                        class="status-{{ appointment.status }}"
                       >
                         {{ appointment.status | titlecase }}
                       </mat-chip>
