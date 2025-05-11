@@ -32,8 +32,7 @@ import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-appointment-calendar',
-  standalone: true,
-  imports: [
+  standalone: true,  imports: [
     CommonModule,
     RouterModule,
     MatCardModule,
@@ -41,6 +40,7 @@ import { Router } from '@angular/router';
     MatIconModule,
     FullCalendarModule,
   ],
+  styleUrls: ['./appointment-status-colors.css'],
   template: `
     <div class="appointment-calendar">
       <header class="mb-6 flex justify-between items-center">
@@ -68,8 +68,7 @@ import { Router } from '@angular/router';
     </div>
   `,
   styles: [
-    `
-      ::ng-deep .fc .fc-button-primary {
+    `      ::ng-deep .fc .fc-button-primary {
         background-color: #1976d2;
         border-color: #1976d2;
       }
@@ -86,27 +85,45 @@ import { Router } from '@angular/router';
 
       ::ng-deep .fc-event {
         cursor: pointer;
+        border-radius: 4px;
+        font-size: 0.85em;
+        padding: 3px;
       }
-
-      ::ng-deep .fc-event.status-confirmed {
-        background-color: #1976d2;
-        border-color: #1976d2;
+      
+      ::ng-deep .fc-event-title {
+        font-weight: 500;
+      }
+      
+      ::ng-deep .fc-today-button {
+        text-transform: capitalize;
+      }
+      
+      ::ng-deep .fc-col-header-cell {
+        background-color: #f5f5f5;
+        font-weight: 500;
+      }::ng-deep .fc-event.status-confirmed {
+        background-color: #e3f2fd !important;
+        border-color: #bbdefb !important;
+        color: #1976d2 !important;
       }
 
       ::ng-deep .fc-event.status-pending {
-        background-color: #ff9800;
-        border-color: #ff9800;
+        background-color: #fff8e1 !important;
+        border-color: #ffe082 !important;
+        color: #f57c00 !important;
       }
 
       ::ng-deep .fc-event.status-cancelled {
-        background-color: #f44336;
-        border-color: #f44336;
+        background-color: #ffebee !important;
+        border-color: #ffcdd2 !important;
+        color: #d32f2f !important;
         text-decoration: line-through;
       }
 
       ::ng-deep .fc-event.status-completed {
-        background-color: #4caf50;
-        border-color: #4caf50;
+        background-color: #e8f5e9 !important;
+        border-color: #c8e6c9 !important;
+        color: #388e3c !important;
       }
     `,
   ],
@@ -129,12 +146,12 @@ export class AppointmentCalendarComponent implements OnInit {
     selectable: true, // Allow date selection for new appointments
     selectMirror: true,
     dayMaxEvents: true,
-    events: [],
-    eventClick: this.handleEventClick.bind(this),
+    events: [],    eventClick: this.handleEventClick.bind(this),
     eventClassNames: this.handleEventClassNames.bind(this),
     select: this.handleDateSelect.bind(this),
     eventDrop: this.handleEventDrop.bind(this),
     eventResize: this.handleEventResize.bind(this),
+    eventDidMount: this.handleEventDidMount.bind(this),
     businessHours: {
       daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
       startTime: '09:00',
@@ -159,13 +176,11 @@ export class AppointmentCalendarComponent implements OnInit {
     this.appointmentService
       .getAppointmentsByUser(this.currentUser.id)
       .subscribe((appointments) => {
-        this.appointments = appointments;
-
-        // Format appointments for the calendar
+        this.appointments = appointments;        // Format appointments for the calendar
         const events = this.appointments.map((appointment) => {
           return {
             id: appointment.id,
-            title: appointment.title,
+            title: this.formatEventTitle(appointment),
             start: new Date(appointment.startTime),
             end: new Date(appointment.endTime),
             extendedProps: {
@@ -173,6 +188,7 @@ export class AppointmentCalendarComponent implements OnInit {
               patientId: appointment.patientId,
               doctorId: appointment.doctorId,
               notes: appointment.notes,
+              originalTitle: appointment.title
             },
           };
         });
@@ -184,10 +200,22 @@ export class AppointmentCalendarComponent implements OnInit {
   handleEventClick(clickInfo: EventClickArg): void {
     const appointmentId = clickInfo.event.id;
     this.router.navigate(['/appointments', appointmentId]);
-  }
-  handleEventClassNames(arg: any): string[] {
+  }  handleEventClassNames(arg: any): string[] {
     const status = arg.event.extendedProps.status;
     return [`status-${status.toLowerCase()}`];
+  }
+  
+  /**
+   * Format the event display to show additional details
+   */
+  private formatEventTitle(appointment: Appointment): string {
+    const status = appointment.status.charAt(0).toUpperCase();
+    const time = new Date(appointment.startTime).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    return `[${status}] ${time} - ${appointment.title}`;
   }
 
   /**
@@ -248,8 +276,7 @@ export class AppointmentCalendarComponent implements OnInit {
   }
   /**
    * Handle when an event is resized to change its duration
-   */
-  handleEventResize(resizeInfo: any): void {
+   */  handleEventResize(resizeInfo: any): void {
     const appointmentId = resizeInfo.event.id;
     const newEndTime = resizeInfo.event.end;
 
@@ -278,5 +305,58 @@ export class AppointmentCalendarComponent implements OnInit {
           resizeInfo.revert();
         },
       });
+  }
+
+  /**
+   * Add a tooltip to each event when they are rendered
+   */
+  handleEventDidMount(info: any): void {
+    const event = info.event;
+    const status = event.extendedProps.status;
+    const originalTitle = event.extendedProps.originalTitle;
+    const startTime = event.start?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const endTime = event.end?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'appointment-tooltip';
+    tooltip.innerHTML = `
+      <strong>${originalTitle}</strong><br>
+      <span>Time: ${startTime} - ${endTime}</span><br>
+      <span>Status: ${status.charAt(0).toUpperCase() + status.slice(1)}</span>
+    `;
+    tooltip.style.position = 'absolute';
+    tooltip.style.zIndex = '10000';
+    tooltip.style.backgroundColor = 'white';
+    tooltip.style.padding = '8px';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16)';
+    tooltip.style.display = 'none';
+    
+    // Append tooltip to body
+    document.body.appendChild(tooltip);
+    
+    // Show tooltip on mouseover
+    info.el.addEventListener('mouseover', (e: MouseEvent) => {
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${e.pageX + 10}px`;
+      tooltip.style.top = `${e.pageY + 10}px`;
+    });
+    
+    // Move tooltip with cursor
+    info.el.addEventListener('mousemove', (e: MouseEvent) => {
+      tooltip.style.left = `${e.pageX + 10}px`;
+      tooltip.style.top = `${e.pageY + 10}px`;
+    });
+    
+    // Hide tooltip on mouseout
+    info.el.addEventListener('mouseout', () => {
+      tooltip.style.display = 'none';
+    });
+    
+    // Clean up tooltip when event is removed
+    info.el.addEventListener('remove', () => {
+      document.body.removeChild(tooltip);
+    });
   }
 }
