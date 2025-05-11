@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule, Router, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { MessageService } from '../../core/services/message.service';
@@ -17,8 +18,7 @@ import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-layout',
-  standalone: true,
-  imports: [
+  standalone: true,  imports: [
     CommonModule,
     RouterModule,
     RouterOutlet,
@@ -30,6 +30,7 @@ import { Observable } from 'rxjs';
     MatMenuModule,
     MatBadgeModule,
     MatDividerModule,
+    MatTooltipModule,
   ],
   template: `
     <div class="flex flex-col h-screen">
@@ -39,21 +40,13 @@ import { Observable } from 'rxjs';
         </button>
         <span class="ml-2 font-semibold">Healthcare Appointment System</span>
         <span class="flex-1"></span>
-        <ng-container *ngIf="currentUser$ | async as user">
-          <button
-            mat-icon-button
-            [matBadge]="unreadReminderCount"
-            matBadgeColor="warn"
-            [matMenuTriggerFor]="reminderMenu"
-          >
-            <mat-icon>notifications</mat-icon>
-          </button>
-          <button
+        <ng-container *ngIf="currentUser$ | async as user">          <button
             mat-icon-button
             [matBadge]="unreadReminderCount"
             [matBadgeHidden]="unreadReminderCount === 0"
             matBadgeColor="warn"
             [matMenuTriggerFor]="reminderMenu"
+            matTooltip="Reminders"
           >
             <mat-icon>notifications</mat-icon>
           </button>
@@ -63,6 +56,7 @@ import { Observable } from 'rxjs';
             [matBadgeHidden]="unreadMessageCount === 0"
             matBadgeColor="accent"
             routerLink="/messaging"
+            matTooltip="Messages"
           >
             <mat-icon>mail</mat-icon>
           </button>
@@ -75,60 +69,97 @@ import { Observable } from 'rxjs';
             <ng-template #defaultAvatar>
               <mat-icon>account_circle</mat-icon>
             </ng-template>
-          </button>
-
-          <mat-menu #reminderMenu="matMenu" class="reminder-menu">
-            <div class="p-2">
-              <div class="flex justify-between items-center mb-2">
+          </button>          <mat-menu #reminderMenu="matMenu" class="reminder-menu" [xPosition]="'before'" [overlapTrigger]="false">
+            <div class="p-3">
+              <div class="flex justify-between items-center">
                 <h3 class="text-lg font-medium">Reminders</h3>
-                <button
-                  mat-icon-button
-                  (click)="markAllRemindersRead($event)"
-                  *ngIf="unreadReminderCount > 0"
-                >
-                  <mat-icon class="text-sm">done_all</mat-icon>
-                </button>
+                <div class="flex items-center">
+                  <button
+                    mat-icon-button
+                    matTooltip="Mark all as read"
+                    (click)="markAllRemindersRead($event)"
+                    *ngIf="unreadReminderCount > 0"
+                    class="text-blue-600"
+                  >
+                    <mat-icon class="text-sm">done_all</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    matTooltip="View all reminders"
+                    routerLink="/appointments/reminders"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <mat-icon class="text-sm">launch</mat-icon>
+                  </button>
+                </div>
+              </div>
+              <div *ngIf="unreadReminderCount > 0" class="text-xs text-blue-600 mt-1">
+                {{ unreadReminderCount }} unread {{ unreadReminderCount === 1 ? 'reminder' : 'reminders' }}
               </div>
             </div>
             <mat-divider></mat-divider>
-            <div class="max-h-[300px] overflow-y-auto">
+            <div class="max-h-[350px] overflow-y-auto">
               <div
                 *ngIf="reminders.length === 0"
-                class="p-4 text-center text-gray-500"
+                class="p-6 text-center text-gray-500"
               >
-                <mat-icon>notifications_off</mat-icon>
+                <mat-icon class="text-gray-400 text-3xl">notifications_off</mat-icon>
                 <p class="mt-2">No reminders</p>
               </div>
               <button
                 mat-menu-item
                 *ngFor="let reminder of reminders"
-                class="flex flex-col items-start"
-                [ngClass]="{ 'bg-blue-50': !reminder.isRead }"
+                class="flex flex-col items-start p-3"
+                [ngClass]="{ 'bg-blue-50': !reminder.isRead, 'border-l-4 border-blue-500': !reminder.isRead }"
                 (click)="markReminderRead(reminder.id)"
               >
-                <div class="flex items-center justify-between w-full">
-                  <span class="text-sm font-medium">{{
+                <div class="flex items-start justify-between w-full">
+                  <span class="text-sm font-medium pr-4" [ngClass]="{'text-blue-700': !reminder.isRead}">{{
                     reminder.message
                   }}</span>
                   <mat-icon
                     *ngIf="!reminder.isRead"
-                    class="text-blue-500 text-sm"
+                    class="text-blue-500 text-sm ml-1"
                     >fiber_new</mat-icon
                   >
                 </div>
-                <span class="text-xs text-gray-500">
-                  {{ reminder.reminderDate | date : 'MMM d, h:mm a' }}
-                </span>
+                <div class="flex items-center mt-2">
+                  <mat-icon class="text-gray-400 text-xs mr-1">schedule</mat-icon>
+                  <span class="text-xs text-gray-500">
+                    {{ reminder.reminderDate | date : 'MMM d, h:mm a' }}
+                  </span>
+                </div>
               </button>
             </div>
-          </mat-menu>
-          <mat-menu #userMenu="matMenu">
-            <div class="px-4 py-2 text-center">
-              <p class="font-medium">
+            <mat-divider></mat-divider>
+            <div class="p-2 text-center" *ngIf="reminders.length > 0">
+              <button mat-button color="primary" routerLink="/appointments/reminders" class="text-sm">
+                Show All Reminders
+              </button>
+            </div>
+          </mat-menu>          <mat-menu #userMenu="matMenu" [xPosition]="'before'" [overlapTrigger]="false">
+            <div class="px-4 py-3 text-center">
+              <div class="mb-2">
+                <div
+                  *ngIf="user.profilePicture; else menuDefaultAvatar"
+                  class="h-16 w-16 rounded-full bg-cover bg-center mx-auto"
+                  [style.background-image]="'url(' + user.profilePicture + ')'"
+                ></div>
+                <ng-template #menuDefaultAvatar>
+                  <div class="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
+                    <mat-icon class="text-4xl text-blue-500">account_circle</mat-icon>
+                  </div>
+                </ng-template>
+              </div>
+              <p class="font-medium text-gray-800">
                 {{ user.firstName }} {{ user.lastName }}
               </p>
-              <p class="text-sm text-gray-600">{{ user.email }}</p>
-              <p class="text-xs text-blue-600 font-medium mt-1">
+              <p class="text-sm text-gray-600">{{ user.email }}</p>              <p class="text-xs font-medium mt-1"
+                 [ngClass]="{
+                   'text-blue-600': user.role === UserRole.DOCTOR,
+                   'text-green-600': user.role === UserRole.PATIENT,
+                   'text-purple-600': user.role === UserRole.ADMIN
+                 }">
                 {{ user.role | titlecase }}
               </p>
             </div>
@@ -137,6 +168,11 @@ import { Observable } from 'rxjs';
               <mat-icon>person</mat-icon>
               <span>My Profile</span>
             </button>
+            <button mat-menu-item routerLink="/appointments">
+              <mat-icon>event</mat-icon>
+              <span>My Appointments</span>
+            </button>
+            <mat-divider></mat-divider>
             <button mat-menu-item (click)="logout()">
               <mat-icon>exit_to_app</mat-icon>
               <span>Logout</span>
@@ -185,9 +221,7 @@ import { Observable } from 'rxjs';
                 >
                   <mat-icon matListItemIcon>dashboard</mat-icon>
                   <span matListItemTitle>Dashboard</span>
-                </a>
-
-                <a
+                </a>                <a
                   mat-list-item
                   routerLink="/appointments"
                   routerLinkActive="bg-blue-50"
@@ -195,6 +229,33 @@ import { Observable } from 'rxjs';
                   <mat-icon matListItemIcon>event</mat-icon>
                   <span matListItemTitle>Appointments</span>
                 </a>
+                
+                <a
+                  mat-list-item
+                  routerLink="/appointments/calendar"
+                  routerLinkActive="bg-blue-50"
+                  [routerLinkActiveOptions]="{exact: false}"
+                >
+                  <mat-icon matListItemIcon>calendar_today</mat-icon>
+                  <span matListItemTitle>Calendar</span>
+                </a>
+                
+                <a
+                  mat-list-item
+                  routerLink="/appointments/reminders"
+                  routerLinkActive="bg-blue-50"
+                  [routerLinkActiveOptions]="{exact: true}"
+                >
+                  <mat-icon
+                    matListItemIcon
+                    [matBadge]="unreadReminderCount"
+                    [matBadgeHidden]="unreadReminderCount === 0"
+                    matBadgeColor="warn"
+                    >notifications</mat-icon
+                  >
+                  <span matListItemTitle>Reminders</span>
+                </a>
+                
                 <a
                   mat-list-item
                   routerLink="/messaging"
@@ -248,16 +309,34 @@ import { Observable } from 'rxjs';
         </mat-sidenav-content>
       </mat-sidenav-container>
     </div>
-  `,
-  styles: [
+  `,  styles: [
     `
       .mat-toolbar {
         position: sticky;
         top: 0;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .mat-drawer {
         border-right: none;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+      }
+      
+      .mat-mdc-list-item.mdc-list-item--with-one-line.mat-mdc-list-item.mdc-list-item {
+        height: 48px;
+      }
+      
+      .reminder-menu {
+        max-width: 350px;
+      }
+      
+      ::ng-deep .mat-badge-content {
+        font-size: 10px;
+        font-weight: 600;
+        min-width: 16px;
+        height: 16px;
+        line-height: 16px;
       }
     `,
   ],
@@ -269,6 +348,9 @@ export class LayoutComponent implements OnInit {
   private messageService = inject(MessageService);
   private reminderService = inject(ReminderService);
   private router = inject(Router);
+
+  // Make UserRole available to the template
+  UserRole = UserRole;
 
   currentUser$: Observable<User | null>;
   isAdmin$: Observable<boolean>;
@@ -286,7 +368,6 @@ export class LayoutComponent implements OnInit {
       });
     });
   }
-
   ngOnInit(): void {
     // Get unread message count
     this.authService.currentUser$.subscribe((user) => {
@@ -295,9 +376,10 @@ export class LayoutComponent implements OnInit {
           this.unreadMessageCount = messages.length;
         });
 
-        // Get unread reminders count
-        this.reminderService.getUnreadRemindersCount().subscribe((count) => {
-          this.unreadReminderCount = count;
+        // Get unread reminders count and subscribe to future updates
+        this.refreshReminders();
+        this.reminderService.reminders$.subscribe(() => {
+          this.refreshReminders();
         });
 
         // Load reminders
@@ -315,32 +397,29 @@ export class LayoutComponent implements OnInit {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
   }
-
   markReminderRead(id: string): void {
     this.reminderService.markAsRead(id).subscribe(() => {
-      // Update the reminder count
-      this.reminderService.getUnreadRemindersCount().subscribe((count) => {
-        this.unreadReminderCount = count;
-      });
-
-      // Update the reminders list
-      this.reminderService.getReminders().subscribe((reminders) => {
-        this.reminders = reminders;
-      });
+      this.refreshReminders();
     });
   }
-
   markAllRemindersRead(event: Event): void {
     // Prevent menu from closing
     event.stopPropagation();
 
     this.reminderService.markAllAsRead().subscribe(() => {
-      this.unreadReminderCount = 0;
+      this.refreshReminders();
+    });
+  }
 
-      // Update the reminders list
-      this.reminderService.getReminders().subscribe((reminders) => {
-        this.reminders = reminders;
-      });
+  refreshReminders(): void {
+    // Get unread reminders count
+    this.reminderService.getUnreadRemindersCount().subscribe((count) => {
+      this.unreadReminderCount = count;
+    });
+
+    // Update the reminders list
+    this.reminderService.getReminders().subscribe((reminders) => {
+      this.reminders = reminders;
     });
   }
 }
