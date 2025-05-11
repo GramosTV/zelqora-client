@@ -1,86 +1,55 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { User, UserRole } from '../models/user.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
-  // Mock user data - in a real app, you'd fetch this from an API
-  private users: User[] = [
-    {
-      id: '1',
-      email: 'doctor@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      role: UserRole.DOCTOR,
-      specialization: 'Cardiology',
-      profilePicture: 'assets/images/doctor.jpg',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '2',
-      email: 'patient@example.com',
-      firstName: 'Jane',
-      lastName: 'Smith',
-      role: UserRole.PATIENT,
-      profilePicture: 'assets/images/patient.jpg',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '3',
-      email: 'admin@example.com',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: UserRole.ADMIN,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '4',
-      email: 'doctor2@example.com',
-      firstName: 'Emily',
-      lastName: 'Johnson',
-      role: UserRole.DOCTOR,
-      specialization: 'Dermatology',
-      profilePicture: 'assets/images/doctor2.jpg',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+  private apiUrl = `${environment.apiUrl}/users`;
 
-  constructor() {}
+  constructor(private http: HttpClient) {}
 
   getAllUsers(): Observable<User[]> {
-    return of(this.users).pipe(delay(500));
+    return this.http.get<User[]>(this.apiUrl);
   }
 
-  getUserById(id: string): Observable<User | undefined> {
-    const user = this.users.find((u) => u.id === id);
-    return of(user).pipe(delay(500));
+  getUserById(id: string): Observable<User> {
+    return this.http.get<User>(`${this.apiUrl}/${id}`);
   }
 
   getDoctors(): Observable<User[]> {
-    const doctors = this.users.filter((u) => u.role === UserRole.DOCTOR);
-    return of(doctors).pipe(delay(500));
+    const params = new HttpParams().set('role', UserRole.DOCTOR);
+    return this.http.get<User[]>(this.apiUrl, { params });
   }
 
+  getPatients(): Observable<User[]> {
+    const params = new HttpParams().set('role', UserRole.PATIENT);
+    return this.http.get<User[]>(this.apiUrl, { params });
+  }
   updateUser(id: string, userData: Partial<User>): Observable<User> {
-    const index = this.users.findIndex((u) => u.id === id);
+    return this.http.patch<User>(`${this.apiUrl}/${id}`, userData);
+  }
 
-    if (index !== -1) {
-      this.users[index] = {
-        ...this.users[index],
-        ...userData,
-        updatedAt: new Date(),
-      };
+  createUser(userData: Partial<User>): Observable<User> {
+    return this.http.post<User>(this.apiUrl, userData);
+  }
 
-      return of(this.users[index]).pipe(delay(500));
-    }
+  deleteUser(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
 
-    throw new Error('User not found');
+  updateProfilePicture(id: string, formData: FormData): Observable<User> {
+    return this.http.post<User>(
+      `${this.apiUrl}/${id}/profile-picture`,
+      formData
+    );
+  }
+
+  searchUsers(query: string): Observable<User[]> {
+    const params = new HttpParams().set('search', query);
+    return this.http.get<User[]>(`${this.apiUrl}/search`, { params });
   }
 }
