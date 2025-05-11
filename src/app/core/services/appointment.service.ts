@@ -1,130 +1,75 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { Appointment, AppointmentStatus } from '../models/appointment.model';
 import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AppointmentService {
-  // Mock appointment data
-  private appointments: Appointment[] = [
-    {
-      id: '1',
-      title: 'Annual Checkup',
-      patientId: '2',
-      doctorId: '1',
-      startTime: new Date('2025-05-15T09:00:00'),
-      endTime: new Date('2025-05-15T09:30:00'),
-      status: AppointmentStatus.CONFIRMED,
-      notes: 'Regular annual checkup',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '2',
-      title: 'Follow-up Consultation',
-      patientId: '2',
-      doctorId: '1',
-      startTime: new Date('2025-05-20T14:00:00'),
-      endTime: new Date('2025-05-20T14:30:00'),
-      status: AppointmentStatus.PENDING,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+  private apiUrl = `${environment.apiUrl}/appointments`;
 
-  constructor(private authService: AuthService) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
   getAllAppointments(): Observable<Appointment[]> {
-    return of(this.appointments).pipe(delay(500));
+    return this.http.get<Appointment[]>(this.apiUrl);
   }
 
   getAppointmentsByUser(userId: string): Observable<Appointment[]> {
-    const currentUser = this.authService.getCurrentUser();
-
+    const currentUser = this.authService.currentUserSubject.value;
+    
     if (!currentUser) {
-      return of([]);
+      return this.http.get<Appointment[]>(`${this.apiUrl}/user/${userId}`);
     }
 
-    let filteredAppointments: Appointment[];
-
-    // Filter based on user role
-    if (currentUser.role === 'doctor') {
-      filteredAppointments = this.appointments.filter(
-        (a) => a.doctorId === userId
-      );
-    } else if (currentUser.role === 'patient') {
-      filteredAppointments = this.appointments.filter(
-        (a) => a.patientId === userId
-      );
+    // If user is a doctor, get appointments where they're the doctor
+    // If user is a patient, get appointments where they're the patient
+    // If user is an admin, get all appointments
+    if (currentUser.role === 'DOCTOR') {
+      return this.http.get<Appointment[]>(`${this.apiUrl}/doctor/${userId}`);
+    } else if (currentUser.role === 'PATIENT') {
+      return this.http.get<Appointment[]>(`${this.apiUrl}/patient/${userId}`);
     } else {
-      // Admin can see all appointments
-      filteredAppointments = this.appointments;
+      return this.getAllAppointments();
     }
-
-    return of(filteredAppointments).pipe(delay(500));
   }
 
-  getAppointmentById(id: string): Observable<Appointment | undefined> {
-    const appointment = this.appointments.find((a) => a.id === id);
-    return of(appointment).pipe(delay(500));
+  getAppointmentById(id: string): Observable<Appointment> {
+    return this.http.get<Appointment>(`${this.apiUrl}/${id}`);
   }
 
-  createAppointment(
-    appointment: Partial<Appointment>
-  ): Observable<Appointment> {
-    const newAppointment: Appointment = {
-      id: Math.random().toString(36).substring(2),
-      title: appointment.title!,
-      patientId: appointment.patientId!,
-      doctorId: appointment.doctorId!,
-      startTime: appointment.startTime!,
-      endTime: appointment.endTime!,
-      status: AppointmentStatus.PENDING,
-      notes: appointment.notes,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    this.appointments.push(newAppointment);
-    return of(newAppointment).pipe(delay(500));
+  createAppointment(appointment: Partial<Appointment>): Observable<Appointment> {
+    return this.http.post<Appointment>(this.apiUrl, appointment);
   }
 
-  updateAppointment(
-    id: string,
-    appointment: Partial<Appointment>
-  ): Observable<Appointment> {
-    const index = this.appointments.findIndex((a) => a.id === id);
-
-    if (index !== -1) {
-      this.appointments[index] = {
-        ...this.appointments[index],
-        ...appointment,
-        updatedAt: new Date(),
-      };
-      return of(this.appointments[index]).pipe(delay(500));
-    }
-
-    throw new Error('Appointment not found');
+  updateAppointment(id: string, appointment: Partial<Appointment>): Observable<Appointment> {
+    return this.http.patch<Appointment>(`${this.apiUrl}/${id}`, appointment);
   }
 
-  deleteAppointment(id: string): Observable<boolean> {
-    const index = this.appointments.findIndex((a) => a.id === id);
-
-    if (index !== -1) {
-      this.appointments.splice(index, 1);
-      return of(true).pipe(delay(500));
-    }
-
-    return of(false).pipe(delay(500));
+  deleteAppointment(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  updateAppointmentStatus(
-    id: string,
-    status: AppointmentStatus
-  ): Observable<Appointment> {
+  updateAppointmentStatus(id: string, status: AppointmentStatus): Observable<Appointment> {
     return this.updateAppointment(id, { status });
+  }
+
+  getUpcomingAppointments(): Observable<Appointment[]> {
+    const params = new HttpParams().set('upcoming', 'true');
+    return this.http.get<Appointment[]>(this.apiUrl, { params });
+  }
+
+  getTodaysAppointments(): Observable<Appointment[]> {
+    const params = new HttpParams().set('today', 'true');
+    return this.http.get<Appointment[]>(this.apiUrl, { params });
+  }
+
+  getAppointmentsByDateRange(startDate: Date, endDate: Date): Observable<Appointment[]> {
+    const params = new HttpParams()
+      .set('startDate', startDate.toISOString())
+      .set('endDate', endDate.toISOString());
+    return this.http.get<Appointment[]>(this.apiUrl, { params });
   }
 }
