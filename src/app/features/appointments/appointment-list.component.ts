@@ -29,8 +29,7 @@ import { User, UserRole } from '../../core/models/user.model';
     MatTableModule,
     MatChipsModule,
     MatTooltipModule,
-    DatePipe,  ],
-  styleUrls: ['./appointment-status-colors.css'],
+    DatePipe,  ],  styleUrls: ['./appointment-status-colors.css'],
   styles: [
     `
       .mat-column-actions {
@@ -39,16 +38,6 @@ import { User, UserRole } from '../../core/models/user.model';
       }
       .mat-column-status {
         width: 140px;
-      }
-        color: #f57c00 !important;
-      }
-      .status-cancelled {
-        background-color: #ffebee !important;
-        color: #d32f2f !important;
-      }
-      .status-completed {
-        background-color: #e8f5e9 !important;
-        color: #388e3c !important;
       }
     `,
   ],
