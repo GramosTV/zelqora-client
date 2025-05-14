@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Appointment, AppointmentStatus } from '../models/appointment.model';
 import { AuthService } from './auth.service';
+import { UserRole } from '../models/user.model';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -16,10 +17,9 @@ export class AppointmentService {
   getAllAppointments(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(this.apiUrl);
   }
-
   getAppointmentsByUser(userId: string): Observable<Appointment[]> {
     const currentUser = this.authService.currentUserSubject.value;
-    
+
     if (!currentUser) {
       return this.http.get<Appointment[]>(`${this.apiUrl}/user/${userId}`);
     }
@@ -27,9 +27,9 @@ export class AppointmentService {
     // If user is a doctor, get appointments where they're the doctor
     // If user is a patient, get appointments where they're the patient
     // If user is an admin, get all appointments
-    if (currentUser.role === 'DOCTOR') {
+    if (currentUser.role === UserRole.DOCTOR) {
       return this.http.get<Appointment[]>(`${this.apiUrl}/doctor/${userId}`);
-    } else if (currentUser.role === 'PATIENT') {
+    } else if (currentUser.role === UserRole.PATIENT) {
       return this.http.get<Appointment[]>(`${this.apiUrl}/patient/${userId}`);
     } else {
       return this.getAllAppointments();
@@ -40,11 +40,16 @@ export class AppointmentService {
     return this.http.get<Appointment>(`${this.apiUrl}/${id}`);
   }
 
-  createAppointment(appointment: Partial<Appointment>): Observable<Appointment> {
+  createAppointment(
+    appointment: Partial<Appointment>
+  ): Observable<Appointment> {
     return this.http.post<Appointment>(this.apiUrl, appointment);
   }
 
-  updateAppointment(id: string, appointment: Partial<Appointment>): Observable<Appointment> {
+  updateAppointment(
+    id: string,
+    appointment: Partial<Appointment>
+  ): Observable<Appointment> {
     return this.http.patch<Appointment>(`${this.apiUrl}/${id}`, appointment);
   }
 
@@ -52,7 +57,10 @@ export class AppointmentService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  updateAppointmentStatus(id: string, status: AppointmentStatus): Observable<Appointment> {
+  updateAppointmentStatus(
+    id: string,
+    status: AppointmentStatus
+  ): Observable<Appointment> {
     return this.updateAppointment(id, { status });
   }
 
@@ -66,7 +74,10 @@ export class AppointmentService {
     return this.http.get<Appointment[]>(this.apiUrl, { params });
   }
 
-  getAppointmentsByDateRange(startDate: Date, endDate: Date): Observable<Appointment[]> {
+  getAppointmentsByDateRange(
+    startDate: Date,
+    endDate: Date
+  ): Observable<Appointment[]> {
     const params = new HttpParams()
       .set('startDate', startDate.toISOString())
       .set('endDate', endDate.toISOString());

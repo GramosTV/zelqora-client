@@ -22,12 +22,13 @@ interface TokenResponse {
   providedIn: 'root',
 })
 export class AuthService {
-  private apiUrl = `${environment.apiUrl}/auth`;  public currentUserSubject = new BehaviorSubject<User | null>(null);
+  private apiUrl = `${environment.apiUrl}/auth`;
+  public currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
   private refreshTokenTimeout: any;
 
   constructor(
-    private http: HttpClient, 
+    private http: HttpClient,
     private jwtHelper: JwtHelperService,
     private router: Router
   ) {
@@ -60,7 +61,7 @@ export class AuthService {
 
   getUserProfile(userId: string): Observable<User> {
     return this.http.get<User>(`${environment.apiUrl}/users/${userId}`).pipe(
-      tap(user => {
+      tap((user) => {
         this.currentUserSubject.next(user);
         localStorage.setItem('currentUser', JSON.stringify(user));
       })
@@ -68,35 +69,41 @@ export class AuthService {
   }
 
   login(email: string, password: string): Observable<User> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
+    return this.http
+      .post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
       .pipe(
-        tap(response => {
+        tap((response) => {
           localStorage.setItem('accessToken', response.accessToken);
           localStorage.setItem('refreshToken', response.refreshToken);
           localStorage.setItem('currentUser', JSON.stringify(response.user));
           this.currentUserSubject.next(response.user);
           this.startRefreshTokenTimer();
         }),
-        map(response => response.user),
-        catchError(error => {
-          return throwError(() => new Error(error.error?.message || 'Invalid email or password'));
+        map((response) => response.user),
+        catchError((error) => {
+          return throwError(
+            () => new Error(error.error?.message || 'Invalid email or password')
+          );
         })
       );
   }
 
   register(user: Partial<User>): Observable<User> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/users/register`, user)
+    return this.http
+      .post<AuthResponse>(`${environment.apiUrl}/users/register`, user)
       .pipe(
-        tap(response => {
+        tap((response) => {
           localStorage.setItem('accessToken', response.accessToken);
           localStorage.setItem('refreshToken', response.refreshToken);
           localStorage.setItem('currentUser', JSON.stringify(response.user));
           this.currentUserSubject.next(response.user);
           this.startRefreshTokenTimer();
         }),
-        map(response => response.user),
-        catchError(error => {
-          return throwError(() => new Error(error.error?.message || 'Registration failed'));
+        map((response) => response.user),
+        catchError((error) => {
+          return throwError(
+            () => new Error(error.error?.message || 'Registration failed')
+          );
         })
       );
   }
@@ -105,7 +112,7 @@ export class AuthService {
     // Call the API to invalidate the refresh token on the server
     this.http.post<void>(`${this.apiUrl}/logout`, {}).subscribe({
       next: () => this.clearAuthData(),
-      error: () => this.clearAuthData()
+      error: () => this.clearAuthData(),
     });
   }
 
@@ -120,19 +127,20 @@ export class AuthService {
 
   refreshToken(): Observable<TokenResponse> {
     const refreshToken = this.getRefreshToken();
-    
+
     if (!refreshToken) {
       return throwError(() => new Error('No refresh token available'));
     }
 
-    return this.http.post<TokenResponse>(`${this.apiUrl}/refresh`, { refreshToken })
+    return this.http
+      .post<TokenResponse>(`${this.apiUrl}/refresh`, { refreshToken })
       .pipe(
-        tap(tokens => {
+        tap((tokens) => {
           localStorage.setItem('accessToken', tokens.accessToken);
           localStorage.setItem('refreshToken', tokens.refreshToken);
           this.startRefreshTokenTimer();
         }),
-        catchError(error => {
+        catchError((error) => {
           this.logout();
           return throwError(() => error);
         })
@@ -157,7 +165,7 @@ export class AuthService {
       if (!expires) return;
 
       // Set refresh timer to occur 30 seconds before token expires
-      const timeout = expires.getTime() - Date.now() - (30 * 1000);
+      const timeout = expires.getTime() - Date.now() - 30 * 1000;
       this.stopRefreshTokenTimer();
       this.refreshTokenTimeout = setTimeout(() => {
         this.refreshToken().subscribe();
@@ -172,15 +180,18 @@ export class AuthService {
       clearTimeout(this.refreshTokenTimeout);
     }
   }
-
   forgotPassword(email: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/request-password-reset`, { email });
+    return this.http.post<any>(`${this.apiUrl}/request-password-reset`, {
+      email,
+    });
   }
 
   resetPassword(token: string, password: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/reset-password`, { token, password });
+    return this.http.post<any>(`${this.apiUrl}/reset-password`, {
+      token,
+      password,
+    });
   }
-}
 
   isLoggedIn(): boolean {
     return !!this.currentUserSubject.value;
