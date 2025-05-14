@@ -11,10 +11,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import {
-  ReminderService,
-  Reminder,
-} from '../../core/services/reminder.service';
+import { ReminderService } from '../../core/services/reminder.service';
+import { Reminder } from '../../core/models/reminder.model';
 import { AppointmentService } from '../../core/services/appointment.service';
 import {
   Appointment,

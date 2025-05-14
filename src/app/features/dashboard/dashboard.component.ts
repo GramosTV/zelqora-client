@@ -13,10 +13,8 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { MessageService } from '../../core/services/message.service';
-import {
-  ReminderService,
-  Reminder,
-} from '../../core/services/reminder.service';
+import { ReminderService } from '../../core/services/reminder.service';
+import { Reminder } from '../../core/models/reminder.model';
 import { UserService } from '../../core/services/user.service';
 import { User, UserRole } from '../../core/models/user.model';
 import {
