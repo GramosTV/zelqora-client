@@ -272,12 +272,12 @@ export class RegisterComponent {
 
     const { firstName, lastName, email, password, role, specialization } =
       this.registerForm.value;
-
     this.authService
       .register({
         email,
         firstName,
         lastName,
+        password, // Add the password field
         role,
         specialization: role === UserRole.DOCTOR ? specialization : undefined,
       })

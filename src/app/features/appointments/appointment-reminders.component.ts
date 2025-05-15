@@ -308,57 +308,70 @@ export class AppointmentRemindersComponent implements OnInit {
     private reminderService: ReminderService,
     private appointmentService: AppointmentService
   ) {}
-
   ngOnInit(): void {
     this.loadReminders();
 
     // Subscribe to reminders observable to get real-time updates
-    this.reminderService.reminders$.subscribe(() => {
-      this.loadReminders();
+    // Use the reminders directly from the BehaviorSubject without making additional API calls
+    this.reminderService.reminders$.subscribe((reminders) => {
+      if (reminders.length > 0) {
+        this.allReminders = reminders;
+        this.applyFilters();
+        this.loadAppointmentsForReminders();
+      }
     });
   }
   loadReminders(): void {
     this.isLoading = true;
-    this.reminderService.getReminders().subscribe((reminders) => {
-      this.allReminders = reminders;
 
-      // Apply filtering
-      this.applyFilters();
-
-      // Reset appointments cache when reloading
-      this.appointments = {};
-
-      // Load appointment details for each reminder
-      const appointmentIds = [
-        ...new Set(this.allReminders.map((r) => r.appointmentId)),
-      ];
-
-      if (appointmentIds.length === 0) {
+    // Initial load of reminders - this will trigger the reminderService.reminders$ subscription
+    // which will handle updating the component data
+    this.reminderService.getReminders().subscribe(
+      () => {
+        // This intentionally doesn't do anything with the direct response
+        // as we're handling reminders via the BehaviorSubject subscription instead
+      },
+      (error) => {
+        console.error('Error loading reminders:', error);
         this.isLoading = false;
-        return;
       }
+    );
+  }
 
-      let loadedCount = 0;
-      appointmentIds.forEach((id) => {
-        this.appointmentService.getAppointmentById(id).subscribe({
-          next: (appointment) => {
-            if (appointment) {
-              this.appointments[id] = appointment;
-            }
+  loadAppointmentsForReminders(): void {
+    // Reset appointments cache when reloading
+    this.appointments = {};
 
-            // Mark as loaded when all appointments are fetched
-            loadedCount++;
-            if (loadedCount === appointmentIds.length) {
-              this.isLoading = false;
-            }
-          },
-          error: () => {
-            loadedCount++;
-            if (loadedCount === appointmentIds.length) {
-              this.isLoading = false;
-            }
-          },
-        });
+    // Load appointment details for each reminder
+    const appointmentIds = [
+      ...new Set(this.allReminders.map((r) => r.appointmentId)),
+    ];
+
+    if (appointmentIds.length === 0) {
+      this.isLoading = false;
+      return;
+    }
+
+    let loadedCount = 0;
+    appointmentIds.forEach((id) => {
+      this.appointmentService.getAppointmentById(id).subscribe({
+        next: (appointment) => {
+          if (appointment) {
+            this.appointments[id] = appointment;
+          }
+
+          // Mark as loaded when all appointments are fetched
+          loadedCount++;
+          if (loadedCount === appointmentIds.length) {
+            this.isLoading = false;
+          }
+        },
+        error: () => {
+          loadedCount++;
+          if (loadedCount === appointmentIds.length) {
+            this.isLoading = false;
+          }
+        },
       });
     });
   }
@@ -380,22 +393,22 @@ export class AppointmentRemindersComponent implements OnInit {
       minute: '2-digit',
     });
   }
-
   markAsRead(id: string): void {
-    this.reminderService.markAsRead(id).subscribe(() => {
-      this.loadReminders();
-    });
+    // The markAsRead method in the service already updates the BehaviorSubject
+    // which will trigger our subscription and update the UI
+    this.reminderService.markAsRead(id).subscribe();
   }
 
   markAllAsRead(): void {
-    this.reminderService.markAllAsRead().subscribe(() => {
-      this.loadReminders();
-    });
+    // The markAllAsRead method in the service already updates the BehaviorSubject
+    // which will trigger our subscription and update the UI
+    this.reminderService.markAllAsRead().subscribe();
   }
+
   deleteReminder(id: string): void {
-    this.reminderService.deleteReminder(id).subscribe(() => {
-      this.loadReminders();
-    });
+    // The deleteReminder method in the service already updates the BehaviorSubject
+    // which will trigger our subscription and update the UI
+    this.reminderService.deleteReminder(id).subscribe();
   }
 
   applyFilters(): void {

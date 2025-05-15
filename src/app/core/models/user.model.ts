@@ -10,6 +10,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole;
+  password?: string; // Optional for registration purposes
   profilePicture?: string;
   specialization?: string; // For doctors
   createdAt: Date;

@@ -3,9 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { User, UserRole } from '../models/user.model';
-import { JwtHelperService } from '@auth0/angular-jwt';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { TokenService } from './token.service';
+import { RefreshTokenService } from './refresh-token.service';
 
 interface AuthResponse {
   user: User;
@@ -26,20 +27,19 @@ export class AuthService {
   public currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
   private refreshTokenTimeout: any;
-
   constructor(
     private http: HttpClient,
-    private jwtHelper: JwtHelperService,
+    private tokenService: TokenService,
+    private refreshTokenService: RefreshTokenService,
     private router: Router
   ) {
     this.checkToken();
   }
-
   private checkToken(): void {
     const token = this.getAccessToken();
     if (token) {
       try {
-        if (!this.jwtHelper.isTokenExpired(token)) {
+        if (!this.tokenService.isTokenExpired(token)) {
           this.loadUserFromToken(token);
           this.startRefreshTokenTimer();
         } else {
@@ -50,31 +50,58 @@ export class AuthService {
       }
     }
   }
-
   private loadUserFromToken(token: string): void {
-    const decodedToken = this.jwtHelper.decodeToken(token);
+    const decodedToken = this.tokenService.decodeToken(token);
     if (decodedToken) {
-      // Fetch the user details using the decoded token information
-      this.getUserProfile(decodedToken.sub).subscribe();
+      // Check if we have the user info in localStorage
+      const userJson = localStorage.getItem('currentUser');
+      if (userJson) {
+        try {
+          const user = JSON.parse(userJson);
+          this.currentUserSubject.next(user);
+          // Still fetch the latest user info in the background
+          this.getUserProfile(
+            decodedToken.sub || decodedToken.nameid || decodedToken.userId
+          ).subscribe();
+        } catch (e) {
+          // JSON parse error, fetch the user profile
+          this.getUserProfile(
+            decodedToken.sub || decodedToken.nameid || decodedToken.userId
+          ).subscribe();
+        }
+      } else {
+        // Fetch the user details using the decoded token information
+        // In .NET Core JWT tokens, the user ID is often stored in 'sub', 'nameid' or 'userId'
+        this.getUserProfile(
+          decodedToken.sub || decodedToken.nameid || decodedToken.userId
+        ).subscribe();
+      }
     }
   }
-
   getUserProfile(userId: string): Observable<User> {
     return this.http.get<User>(`${environment.apiUrl}/users/${userId}`).pipe(
       tap((user) => {
         this.currentUserSubject.next(user);
         localStorage.setItem('currentUser', JSON.stringify(user));
+      }),
+      catchError((error) => {
+        console.error(`Error fetching user profile for ID: ${userId}`, error);
+        return throwError(
+          () =>
+            new Error('Failed to load user profile. Please try again later.')
+        );
       })
     );
   }
-
   login(email: string, password: string): Observable<User> {
     return this.http
       .post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
       .pipe(
         tap((response) => {
-          localStorage.setItem('accessToken', response.accessToken);
-          localStorage.setItem('refreshToken', response.refreshToken);
+          this.tokenService.saveTokens(
+            response.accessToken,
+            response.refreshToken
+          );
           localStorage.setItem('currentUser', JSON.stringify(response.user));
           this.currentUserSubject.next(response.user);
           this.startRefreshTokenTimer();
@@ -87,14 +114,40 @@ export class AuthService {
         })
       );
   }
-
   register(user: Partial<User>): Observable<User> {
+    // Map the UserRole enum value to match the C# backend's expected enum values
+    let mappedRole: number;
+
+    switch (user.role) {
+      case UserRole.PATIENT:
+        mappedRole = 0; // Patient enum value in C#
+        break;
+      case UserRole.DOCTOR:
+        mappedRole = 1; // Doctor enum value in C#
+        break;
+      case UserRole.ADMIN:
+        mappedRole = 2; // Admin enum value in C#
+        break;
+      default:
+        mappedRole = 0; // Default to Patient
+    }
+
+    const registrationData = {
+      ...user,
+      role: mappedRole,
+    };
+
     return this.http
-      .post<AuthResponse>(`${environment.apiUrl}/users/register`, user)
+      .post<AuthResponse>(
+        `${environment.apiUrl}/auth/register`,
+        registrationData
+      )
       .pipe(
         tap((response) => {
-          localStorage.setItem('accessToken', response.accessToken);
-          localStorage.setItem('refreshToken', response.refreshToken);
+          this.tokenService.saveTokens(
+            response.accessToken,
+            response.refreshToken
+          );
           localStorage.setItem('currentUser', JSON.stringify(response.user));
           this.currentUserSubject.next(response.user);
           this.startRefreshTokenTimer();
@@ -115,53 +168,43 @@ export class AuthService {
       error: () => this.clearAuthData(),
     });
   }
-
   private clearAuthData(): void {
+    this.tokenService.removeTokens(); // This handles access and refresh tokens
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     this.stopRefreshTokenTimer();
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth/login']);
   }
-
   refreshToken(): Observable<TokenResponse> {
-    const refreshToken = this.getRefreshToken();
-
-    if (!refreshToken) {
-      return throwError(() => new Error('No refresh token available'));
-    }
-
-    return this.http
-      .post<TokenResponse>(`${this.apiUrl}/refresh`, { refreshToken })
-      .pipe(
-        tap((tokens) => {
-          localStorage.setItem('accessToken', tokens.accessToken);
-          localStorage.setItem('refreshToken', tokens.refreshToken);
-          this.startRefreshTokenTimer();
-        }),
-        catchError((error) => {
-          this.logout();
-          return throwError(() => error);
-        })
-      );
+    return this.refreshTokenService.refreshToken().pipe(
+      tap((tokens) => {
+        // Only start the refresh token timer here
+        this.startRefreshTokenTimer();
+      }),
+      catchError((error) => {
+        this.logout();
+        return throwError(() => error);
+      })
+    );
   }
-
   getAccessToken(): string | null {
-    return localStorage.getItem('accessToken');
+    return this.tokenService.getAccessToken();
   }
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refreshToken');
+    return this.tokenService.getRefreshToken();
   }
-
   private startRefreshTokenTimer(): void {
     const token = this.getAccessToken();
     if (!token) return;
 
     try {
-      // Get token expiration date
-      const expires = this.jwtHelper.getTokenExpirationDate(token);
+      // Get token expiration from TokenService
+      const decodedToken = this.tokenService.decodeToken(token);
+      if (!decodedToken || !decodedToken.exp) return;
+
+      // Calculate expiration date from JWT exp claim (seconds since epoch)
+      const expires = new Date(decodedToken.exp * 1000);
       if (!expires) return;
 
       // Set refresh timer to occur 30 seconds before token expires
@@ -181,16 +224,42 @@ export class AuthService {
     }
   }
   forgotPassword(email: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/request-password-reset`, {
-      email,
-    });
+    return this.http
+      .post<any>(`${this.apiUrl}/request-password-reset`, {
+        email,
+      })
+      .pipe(
+        catchError((error) => {
+          console.error('Error requesting password reset', error);
+          return throwError(
+            () =>
+              new Error(
+                error.error?.message ||
+                  'Failed to request password reset. Please try again.'
+              )
+          );
+        })
+      );
   }
 
   resetPassword(token: string, password: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/reset-password`, {
-      token,
-      password,
-    });
+    return this.http
+      .post<any>(`${this.apiUrl}/reset-password`, {
+        token,
+        password,
+      })
+      .pipe(
+        catchError((error) => {
+          console.error('Error resetting password', error);
+          return throwError(
+            () =>
+              new Error(
+                error.error?.message ||
+                  'Failed to reset password. Please try again.'
+              )
+          );
+        })
+      );
   }
 
   isLoggedIn(): boolean {

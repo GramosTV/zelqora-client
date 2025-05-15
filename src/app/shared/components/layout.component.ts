@@ -15,6 +15,7 @@ import { MessageService } from '../../core/services/message.service';
 import { ReminderService } from '../../core/services/reminder.service';
 import { User, UserRole } from '../../core/models/user.model';
 import { Observable } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-layout',
@@ -409,22 +410,22 @@ export class LayoutComponent implements OnInit {
     });
   }
   ngOnInit(): void {
-    // Get unread message count
+    // Get unread message count - one-time load when the component initializes
     this.authService.currentUser$.subscribe((user) => {
       if (user) {
-        this.messageService.getUnreadMessages(user.id).subscribe((messages) => {
-          this.unreadMessageCount = messages.length;
-        });
-
-        // Get unread reminders count and subscribe to future updates
+        this.messageService
+          .getUnreadMessages(user.id)
+          .pipe(take(1)) // Only take one result to avoid continuous polling
+          .subscribe((messages) => {
+            this.unreadMessageCount = messages.length;
+          }); // Get unread reminders count and subscribe to future updates
         this.refreshReminders();
-        this.reminderService.reminders$.subscribe(() => {
-          this.refreshReminders();
-        });
 
-        // Load reminders
-        this.reminderService.getReminders().subscribe((reminders) => {
+        // Just subscribe to the reminders BehaviorSubject instead of making additional API calls
+        this.reminderService.reminders$.subscribe((reminders) => {
           this.reminders = reminders;
+          // Calculate the unread count from the current reminders
+          this.unreadReminderCount = reminders.filter((r) => !r.isRead).length;
         });
       } else {
         this.unreadMessageCount = 0;
@@ -438,28 +439,22 @@ export class LayoutComponent implements OnInit {
     this.router.navigate(['/auth/login']);
   }
   markReminderRead(id: string): void {
-    this.reminderService.markAsRead(id).subscribe(() => {
-      this.refreshReminders();
-    });
+    // The markAsRead method in the service already updates the BehaviorSubject
+    // which will trigger our subscription to reminders$ and update the UI
+    this.reminderService.markAsRead(id).subscribe();
   }
+
   markAllRemindersRead(event: Event): void {
     // Prevent menu from closing
     event.stopPropagation();
 
-    this.reminderService.markAllAsRead().subscribe(() => {
-      this.refreshReminders();
-    });
+    // The markAllAsRead method in the service already updates the BehaviorSubject
+    // which will trigger our subscription to reminders$ and update the UI
+    this.reminderService.markAllAsRead().subscribe();
   }
-
   refreshReminders(): void {
-    // Get unread reminders count
-    this.reminderService.getUnreadRemindersCount().subscribe((count) => {
-      this.unreadReminderCount = count;
-    });
-
-    // Update the reminders list
-    this.reminderService.getReminders().subscribe((reminders) => {
-      this.reminders = reminders;
-    });
+    // Just update reminders once - this will trigger our subscription
+    // to reminderService.reminders$ which will handle updating the UI
+    this.reminderService.getReminders().subscribe();
   }
 }

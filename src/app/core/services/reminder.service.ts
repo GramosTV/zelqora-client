@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, throwError } from 'rxjs';
+import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   Reminder,
@@ -17,16 +17,21 @@ export class ReminderService {
   private apiUrl = `${environment.apiUrl}/reminders`;
   private reminderSubject = new BehaviorSubject<Reminder[]>([]);
   public reminders$ = this.reminderSubject.asObservable();
+  private initialized = false;
 
   constructor(private http: HttpClient, private authService: AuthService) {
-    // Load initial reminders if user is logged in
+    // Load initial reminders once if user is logged in
     this.authService.currentUser$.subscribe((user) => {
-      if (user) {
+      if (user && !this.initialized) {
+        this.initialized = true;
         this.getReminders().subscribe();
+      } else if (!user) {
+        // Clear reminders when logged out
+        this.initialized = false;
+        this.reminderSubject.next([]);
       }
     });
   }
-
   getReminders(): Observable<Reminder[]> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
@@ -37,7 +42,7 @@ export class ReminderService {
     }
 
     return this.http
-      .get<Reminder[]>(`${this.apiUrl}/user/${currentUser.id}`)
+      .get<Reminder[]>(`${this.apiUrl}?userId=${currentUser.id}`)
       .pipe(
         map((reminders) => {
           // Sort reminders by date (newest first) and read status (unread first)
@@ -55,40 +60,89 @@ export class ReminderService {
         }),
         tap((reminders) => {
           this.reminderSubject.next(reminders);
+        }),
+        catchError((error) => {
+          console.error('Error fetching reminders', error);
+          return throwError(
+            () => new Error('Failed to load reminders. Please try again later.')
+          );
         })
       );
   }
-
   getReminderById(id: string): Observable<Reminder> {
-    return this.http.get<Reminder>(`${this.apiUrl}/${id}`);
+    return this.http.get<Reminder>(`${this.apiUrl}/${id}`).pipe(
+      catchError((error) => {
+        console.error(`Error fetching reminder with ID: ${id}`, error);
+        return throwError(
+          () => new Error('Failed to load reminder. Please try again later.')
+        );
+      })
+    );
   }
 
   getUpcomingReminders(): Observable<Reminder[]> {
-    return this.http.get<Reminder[]>(`${this.apiUrl}/upcoming`);
+    return this.http.get<Reminder[]>(`${this.apiUrl}/upcoming`).pipe(
+      catchError((error) => {
+        console.error('Error fetching upcoming reminders', error);
+        return throwError(
+          () =>
+            new Error(
+              'Failed to load upcoming reminders. Please try again later.'
+            )
+        );
+      })
+    );
   }
 
   getUnreadReminders(): Observable<Reminder[]> {
-    return this.http.get<Reminder[]>(`${this.apiUrl}/unread`);
+    return this.http.get<Reminder[]>(`${this.apiUrl}/unread`).pipe(
+      catchError((error) => {
+        console.error('Error fetching unread reminders', error);
+        return throwError(
+          () =>
+            new Error(
+              'Failed to load unread reminders. Please try again later.'
+            )
+        );
+      })
+    );
   }
 
   getUnreadRemindersCount(): Observable<number> {
     return this.getUnreadReminders().pipe(map((reminders) => reminders.length));
   }
-
   getRemindersByAppointment(appointmentId: string): Observable<Reminder[]> {
-    return this.http.get<Reminder[]>(
-      `${this.apiUrl}/appointment/${appointmentId}`
-    );
+    return this.http
+      .get<Reminder[]>(`${this.apiUrl}/appointment/${appointmentId}`)
+      .pipe(
+        catchError((error) => {
+          console.error(
+            `Error fetching reminders for appointment ID: ${appointmentId}`,
+            error
+          );
+          return throwError(
+            () =>
+              new Error(
+                'Failed to load appointment reminders. Please try again later.'
+              )
+          );
+        })
+      );
   }
   createReminder(reminder: CreateReminderDto): Observable<Reminder> {
     return this.http.post<Reminder>(this.apiUrl, reminder).pipe(
       tap(() => {
         // Refresh the list after creation
         this.getReminders().subscribe();
+      }),
+      catchError((error) => {
+        console.error('Error creating reminder', error);
+        return throwError(
+          () => new Error('Failed to create reminder. Please try again later.')
+        );
       })
     );
   }
-
   createCustomReminder(
     appointmentId: string,
     message: string,
@@ -96,22 +150,35 @@ export class ReminderService {
   ): Observable<Reminder> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
-      return new Observable((observer) => {
-        observer.error('User not authenticated');
-      });
+      return throwError(() => new Error('User not authenticated'));
     }
 
-    const reminderDto: CreateReminderDto = {
-      userId: currentUser.id,
-      appointmentId: appointmentId,
-      title: 'Appointment Reminder',
-      message: message,
-      reminderDate: reminderDate,
-    };
+    // First verify that the appointment exists
+    return this.http
+      .get<any>(`${environment.apiUrl}/appointments/${appointmentId}`)
+      .pipe(
+        switchMap((appointment) => {
+          const reminderDto: CreateReminderDto = {
+            userId: currentUser.id,
+            appointmentId: appointmentId,
+            title: 'Appointment Reminder',
+            message: message,
+            reminderDate: reminderDate,
+          };
 
-    return this.createReminder(reminderDto);
+          return this.createReminder(reminderDto);
+        }),
+        catchError((error) => {
+          console.error(
+            `Error: Appointment with ID ${appointmentId} not found`,
+            error
+          );
+          return throwError(
+            () => new Error(`Appointment with ID ${appointmentId} not found`)
+          );
+        })
+      );
   }
-
   markAsRead(id: string): Observable<Reminder> {
     return this.http.patch<Reminder>(`${this.apiUrl}/${id}/read`, {}).pipe(
       tap(() => {
@@ -121,34 +188,46 @@ export class ReminderService {
           reminder.id === id ? { ...reminder, isRead: true } : reminder
         );
         this.reminderSubject.next(updatedReminders);
+      }),
+      catchError((error) => {
+        console.error(`Error marking reminder ${id} as read`, error);
+        return throwError(
+          () =>
+            new Error(
+              'Failed to mark reminder as read. Please try again later.'
+            )
+        );
       })
     );
   }
-
   markAllAsRead(): Observable<any> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
-      return new Observable((observer) => {
-        observer.error('User not authenticated');
-      });
+      return throwError(() => new Error('User not authenticated'));
     }
 
-    // We need to implement this endpoint on the backend
-    return this.http
-      .patch<any>(`${this.apiUrl}/mark-all-read`, { userId: currentUser.id })
-      .pipe(
-        tap(() => {
-          // Update all reminders as read in our local subject
-          const currentReminders = this.reminderSubject.value;
-          const updatedReminders = currentReminders.map((reminder) => ({
-            ...reminder,
-            isRead: true,
-          }));
-          this.reminderSubject.next(updatedReminders);
-        })
-      );
+    // Call the mark-all-read endpoint on the API
+    return this.http.patch<any>(`${this.apiUrl}/mark-all-read`, {}).pipe(
+      tap(() => {
+        // Update all reminders as read in our local subject
+        const currentReminders = this.reminderSubject.value;
+        const updatedReminders = currentReminders.map((reminder) => ({
+          ...reminder,
+          isRead: true,
+        }));
+        this.reminderSubject.next(updatedReminders);
+      }),
+      catchError((error) => {
+        console.error('Error marking all reminders as read', error);
+        return throwError(
+          () =>
+            new Error(
+              'Failed to mark all reminders as read. Please try again later.'
+            )
+        );
+      })
+    );
   }
-
   deleteReminder(id: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`).pipe(
       tap(() => {
@@ -156,6 +235,12 @@ export class ReminderService {
         const currentReminders = this.reminderSubject.value;
         this.reminderSubject.next(
           currentReminders.filter((reminder) => reminder.id !== id)
+        );
+      }),
+      catchError((error) => {
+        console.error(`Error deleting reminder ${id}`, error);
+        return throwError(
+          () => new Error('Failed to delete reminder. Please try again later.')
         );
       })
     );

@@ -366,16 +366,17 @@ export class CreateAppointmentComponent implements OnInit {
     // Create end time
     const [endHour, endMinute] = formValue.endTime.split(':').map(Number);
     const endTime = new Date(selectedDate);
-    endTime.setHours(endHour, endMinute);
-
-    // Create appointment data - patientId must be a string, never null
+    endTime.setHours(endHour, endMinute); // Create appointment data - patientId must be a string, never null
     const appointmentData = {
       title: formValue.title,
       startTime,
       endTime,
       notes: formValue.notes || '',
-      patientId: this.isPatient ? this.currentUser.id : 'unknown-patient', // In real app, this would be handled differently
+      patientId: this.isPatient
+        ? this.currentUser.id
+        : formValue.patientId || this.currentUser.id, // Ensure a valid patient ID
       doctorId: this.isPatient ? formValue.doctorId : this.currentUser.id,
+      status: AppointmentStatus.PENDING, // Use the enum for status
     };
 
     this.appointmentService.createAppointment(appointmentData).subscribe({

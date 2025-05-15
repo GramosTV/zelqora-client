@@ -1,91 +1,80 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { delay, map } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, delay, map, tap } from 'rxjs/operators';
 import { Message } from '../models/message.model';
 import { AuthService } from './auth.service';
 import { EncryptionService } from './encryption.service';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class MessageService {
-  // Mock message data
-  private messages: Message[] = [
-    {
-      id: '1',
-      senderId: '1', // Doctor
-      receiverId: '2', // Patient
-      content:
-        'Hello Jane, please make sure to bring your previous test results to your next appointment.',
-      encrypted: false, // Initial messages are not encrypted for demo purposes
-      read: true,
-      createdAt: new Date('2025-05-08T10:30:00'),
-      updatedAt: new Date('2025-05-08T10:30:00'),
-    },
-    {
-      id: '2',
-      senderId: '2', // Patient
-      receiverId: '1', // Doctor
-      content: 'I will bring them, thank you for the reminder Dr. Doe.',
-      encrypted: false, // Initial messages are not encrypted for demo purposes
-      read: false,
-      createdAt: new Date('2025-05-08T11:15:00'),
-      updatedAt: new Date('2025-05-08T11:15:00'),
-    },
-  ];
+  private apiUrl = `${environment.apiUrl}/messages`;
 
   constructor(
+    private http: HttpClient,
     private authService: AuthService,
     private encryptionService: EncryptionService
   ) {}
   getConversation(userId1: string, userId2: string): Observable<Message[]> {
-    const conversation = this.messages
-      .filter(
-        (m) =>
-          (m.senderId === userId1 && m.receiverId === userId2) ||
-          (m.senderId === userId2 && m.receiverId === userId1)
-      )
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-    // Decrypt any encrypted messages before returning
-    return of(conversation).pipe(
-      delay(500),
-      map((messages) =>
-        messages.map((message) => {
-          if (message.encrypted) {
-            return {
-              ...message,
-              content: this.encryptionService.decrypt(message.content),
-              // Set encrypted to false since we're returning decrypted content
-              encrypted: false,
-            };
-          }
-          return message;
+    // Call the API endpoint to get the conversation
+    return this.http
+      .get<Message[]>(`${this.apiUrl}/conversation/${userId2}`)
+      .pipe(
+        map((messages) =>
+          messages.map((message) => {
+            // Handle decryption if needed
+            if (message.encrypted) {
+              return {
+                ...message,
+                content: this.encryptionService.decrypt(message.content),
+                // Set encrypted to false since we're returning decrypted content
+                encrypted: false,
+              };
+            }
+            return message;
+          })
+        ),
+        catchError((error) => {
+          console.error('Error fetching conversation', error);
+          return throwError(
+            () =>
+              new Error('Failed to load conversation. Please try again later.')
+          );
         })
-      )
-    );
+      );
   }
-
   getUserMessages(userId: string): Observable<Message[]> {
-    const userMessages = this.messages.filter(
-      (m) => m.senderId === userId || m.receiverId === userId
+    return this.http.get<Message[]>(`${this.apiUrl}/user/${userId}`).pipe(
+      catchError((error) => {
+        console.error('Error fetching user messages', error);
+        return throwError(
+          () => new Error('Failed to load messages. Please try again later.')
+        );
+      })
     );
-
-    return of(userMessages).pipe(delay(500));
   }
 
   getUnreadMessages(userId: string): Observable<Message[]> {
-    const unreadMessages = this.messages.filter(
-      (m) => m.receiverId === userId && !m.read
+    return this.http.get<Message[]>(`${this.apiUrl}/unread`).pipe(
+      catchError((error) => {
+        console.error('Error fetching unread messages', error);
+        return throwError(
+          () =>
+            new Error('Failed to load unread messages. Please try again later.')
+        );
+      })
     );
-
-    return of(unreadMessages).pipe(delay(500));
   }
   sendMessage(message: Partial<Message>): Observable<Message> {
     const currentUser = this.authService.getCurrentUser();
 
     if (!currentUser) {
-      throw new Error('You must be logged in to send messages');
+      return throwError(
+        () => new Error('You must be logged in to send messages')
+      );
     }
 
     // Determine if this message should be encrypted
@@ -103,52 +92,56 @@ export class MessageService {
     // Generate an integrity hash for the message
     const integrityHash = this.encryptionService.generateHash(message.content!);
 
-    const newMessage: Message = {
-      id: Math.random().toString(36).substring(2),
-      senderId: currentUser.id,
+    const messageDto = {
       receiverId: message.receiverId!,
       content: content,
       encrypted: shouldEncrypt,
       integrityHash: integrityHash,
-      read: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
 
-    this.messages.push(newMessage);
-
-    // Return the message with original content to immediately display to the sender
-    return of({
-      ...newMessage,
-      content: originalContent,
-      encrypted: false, // Set to false since we're returning the decrypted content
-    }).pipe(delay(500));
+    return this.http.post<Message>(this.apiUrl, messageDto).pipe(
+      map((response) => {
+        // Return with the original content to immediately display to the sender
+        return {
+          ...response,
+          content: originalContent,
+          encrypted: false, // Set to false since we're returning the decrypted content
+        };
+      }),
+      catchError((error) => {
+        console.error('Error sending message', error);
+        return throwError(
+          () => new Error('Failed to send message. Please try again later.')
+        );
+      })
+    );
   }
 
   markAsRead(messageId: string): Observable<Message> {
-    const index = this.messages.findIndex((m) => m.id === messageId);
-
-    if (index !== -1) {
-      this.messages[index] = {
-        ...this.messages[index],
-        read: true,
-        updatedAt: new Date(),
-      };
-
-      return of(this.messages[index]).pipe(delay(500));
-    }
-
-    throw new Error('Message not found');
+    return this.http
+      .patch<Message>(`${this.apiUrl}/${messageId}/read`, {})
+      .pipe(
+        catchError((error) => {
+          console.error('Error marking message as read', error);
+          return throwError(
+            () =>
+              new Error(
+                'Failed to mark message as read. Please try again later.'
+              )
+          );
+        })
+      );
   }
 
   deleteMessage(messageId: string): Observable<boolean> {
-    const index = this.messages.findIndex((m) => m.id === messageId);
-
-    if (index !== -1) {
-      this.messages.splice(index, 1);
-      return of(true).pipe(delay(500));
-    }
-
-    return of(false).pipe(delay(500));
+    return this.http.delete<void>(`${this.apiUrl}/${messageId}`).pipe(
+      map(() => true),
+      catchError((error) => {
+        console.error('Error deleting message', error);
+        return throwError(
+          () => new Error('Failed to delete message. Please try again later.')
+        );
+      })
+    );
   }
 }

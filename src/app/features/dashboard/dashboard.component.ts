@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { MessageService } from '../../core/services/message.service';
@@ -522,25 +523,48 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.setWelcomeMessage();
 
       // Load appointments
-      this.loadAppointments();
-
-      // Load unread messages count
+      this.loadAppointments(); // Load unread messages count - one-time load
       const messageSub = this.messageService
         .getUnreadMessages(this.currentUser.id)
+        .pipe(take(1)) // Only take one result to avoid continuous polling
         .subscribe((messages) => {
           this.unreadMessages = messages.length;
         });
-      this.subscriptions.push(messageSub);
-
-      // Create a test reminder to ensure we have at least one
-      this.createTestReminder();
+      this.subscriptions.push(messageSub); // Create a test reminder only if needed (one-time operation)
+      if (this.upcomingReminders.length === 0) {
+        this.createTestReminder();
+      }
 
       // Load reminders information
-      this.loadReminders();
-
-      // Subscribe to reminder updates to refresh the display when reminders change
+      this.loadReminders(); // Subscribe to reminder updates to update the UI directly without making additional API calls
       const reminderSub = this.reminderService.reminders$.subscribe({
-        next: () => this.loadReminders(),
+        next: (reminders) => {
+          // Update unread count
+          this.unreadReminders = reminders.filter((r) => !r.isRead).length;
+
+          // Update upcoming reminders display
+          const now = new Date();
+          const oneWeekLater = new Date();
+          oneWeekLater.setDate(now.getDate() + 7);
+
+          this.upcomingReminders = reminders
+            .map((reminder) => ({
+              ...reminder,
+              reminderDate:
+                reminder.reminderDate instanceof Date
+                  ? reminder.reminderDate
+                  : new Date(reminder.reminderDate),
+            }))
+            .filter((r) => {
+              const reminderTime = r.reminderDate.getTime();
+              return (
+                reminderTime >= now.getTime() &&
+                reminderTime <= oneWeekLater.getTime()
+              );
+            })
+            .sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
+            .slice(0, 3); // Take only the 3 most imminent reminders
+        },
         error: (err) => console.error('Error from reminders$ observable:', err),
       });
       this.subscriptions.push(reminderSub);
@@ -617,91 +641,110 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadReminders(): void {
     if (!this.currentUser) return;
 
-    // Get unread reminders count
-    const countSub = this.reminderService.getUnreadRemindersCount().subscribe({
-      next: (count) => {
-        this.unreadReminders = count;
-      },
-      error: (err) => {
-        console.error('Error loading unread reminders count:', err);
-        this.unreadReminders = 0;
-      },
-    });
+    // Get unread reminders count - only once on initial load
+    // Further updates will come from the reminders$ subscription
+    const countSub = this.reminderService
+      .getUnreadRemindersCount()
+      .pipe(take(1))
+      .subscribe({
+        next: (count) => {
+          this.unreadReminders = count;
+        },
+        error: (err) => {
+          console.error('Error loading unread reminders count:', err);
+          this.unreadReminders = 0;
+        },
+      });
     this.subscriptions.push(countSub); // Get upcoming reminders for today and tomorrow
-    const remindersSub = this.reminderService.getReminders().subscribe({
-      next: (reminders) => {
-        console.log('Reminders received:', reminders);
+    const remindersSub = this.reminderService
+      .getReminders()
+      .pipe(take(1)) // Only take one result to avoid continuous polling
+      .subscribe({
+        next: (reminders) => {
+          console.log('Reminders received:', reminders);
 
-        if (reminders.length === 0) {
-          console.log('No reminders received, creating test reminder');
-          this.createTestReminder();
-          return;
-        }
+          if (reminders.length === 0) {
+            console.log('No reminders received, creating test reminder');
+            this.createTestReminder();
+            return;
+          }
 
-        // Get next 7 days' reminders to ensure we have some content
-        const now = new Date();
-        const oneWeekLater = new Date();
-        oneWeekLater.setDate(now.getDate() + 7);
+          // Get next 7 days' reminders to ensure we have some content
+          const now = new Date();
+          const oneWeekLater = new Date();
+          oneWeekLater.setDate(now.getDate() + 7);
 
-        // Ensure we're working with proper Date objects
-        this.upcomingReminders = reminders
-          .map((reminder) => ({
-            ...reminder,
-            reminderDate:
-              reminder.reminderDate instanceof Date
-                ? reminder.reminderDate
-                : new Date(reminder.reminderDate),
-          }))
-          .filter((r) => {
-            // Show all reminders within the next week
-            const reminderTime = r.reminderDate.getTime();
-            return (
-              reminderTime >= now.getTime() &&
-              reminderTime <= oneWeekLater.getTime()
-            );
-          })
-          .sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
-          .slice(0, 3); // Take only the 3 most imminent reminders
+          // Ensure we're working with proper Date objects
+          this.upcomingReminders = reminders
+            .map((reminder) => ({
+              ...reminder,
+              reminderDate:
+                reminder.reminderDate instanceof Date
+                  ? reminder.reminderDate
+                  : new Date(reminder.reminderDate),
+            }))
+            .filter((r) => {
+              // Show all reminders within the next week
+              const reminderTime = r.reminderDate.getTime();
+              return (
+                reminderTime >= now.getTime() &&
+                reminderTime <= oneWeekLater.getTime()
+              );
+            })
+            .sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
+            .slice(0, 3); // Take only the 3 most imminent reminders
 
-        console.log(
-          'Upcoming reminders after filtering:',
-          this.upcomingReminders
-        );
-      },
-      error: (err) => {
-        console.error('Error loading reminders:', err);
-        this.upcomingReminders = [];
-      },
-    });
+          console.log(
+            'Upcoming reminders after filtering:',
+            this.upcomingReminders
+          );
+        },
+        error: (err) => {
+          console.error('Error loading reminders:', err);
+          this.upcomingReminders = [];
+        },
+      });
     this.subscriptions.push(remindersSub);
   }
   createTestReminder(): void {
     if (!this.currentUser) return;
 
-    // Create a reminder for 1 hour from now
-    const now = new Date();
-    const reminderDate = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
+    // First check if we have any real appointments to use
+    this.appointmentService.getUpcomingAppointments().subscribe({
+      next: (appointments) => {
+        if (appointments && appointments.length > 0) {
+          // Use real appointment IDs if available
+          const now = new Date();
+          const reminderDate = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
 
-    this.reminderService
-      .createCustomReminder(
-        'test-dashboard-appointment',
-        'Reminder for your upcoming appointment today',
-        reminderDate
-      )
-      .subscribe();
+          this.reminderService
+            .createCustomReminder(
+              appointments[0].id,
+              'Reminder for your upcoming appointment today',
+              reminderDate
+            )
+            .subscribe();
 
-    // Also create a reminder for tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
+          // If we have a second appointment, use it for the second reminder
+          if (appointments.length > 1) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(10, 0, 0, 0);
 
-    this.reminderService
-      .createCustomReminder(
-        'test-dashboard-appointment-2',
-        'Upcoming follow-up consultation tomorrow',
-        tomorrow
-      )
-      .subscribe();
+            this.reminderService
+              .createCustomReminder(
+                appointments[1].id,
+                'Upcoming follow-up consultation tomorrow',
+                tomorrow
+              )
+              .subscribe();
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Error loading appointments for reminders:', err);
+      },
+    });
   }
   // Helper method to format date relative to today
   getRelativeDate(date: Date | string): string {
