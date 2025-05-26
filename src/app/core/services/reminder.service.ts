@@ -42,11 +42,18 @@ export class ReminderService {
     }
 
     return this.http
-      .get<Reminder[]>(`${this.apiUrl}?userId=${currentUser.id}`)
+      .get<Reminder[]>(`${this.apiUrl}/user/${currentUser.id}`)
       .pipe(
         map((reminders) => {
+          // Convert date strings to Date objects
+          const processedReminders = reminders.map((r) => ({
+            ...r,
+            reminderDate: new Date(r.reminderDate),
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt),
+          }));
           // Sort reminders by date (newest first) and read status (unread first)
-          return reminders.sort((a, b) => {
+          return processedReminders.sort((a, b) => {
             // First sort by read status
             if (a.isRead !== b.isRead) {
               return a.isRead ? 1 : -1;
@@ -71,6 +78,12 @@ export class ReminderService {
   }
   getReminderById(id: string): Observable<Reminder> {
     return this.http.get<Reminder>(`${this.apiUrl}/${id}`).pipe(
+      map((r) => ({
+        ...r,
+        reminderDate: new Date(r.reminderDate),
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt),
+      })),
       catchError((error) => {
         console.error(`Error fetching reminder with ID: ${id}`, error);
         return throwError(
@@ -82,6 +95,14 @@ export class ReminderService {
 
   getUpcomingReminders(): Observable<Reminder[]> {
     return this.http.get<Reminder[]>(`${this.apiUrl}/upcoming`).pipe(
+      map((reminders) =>
+        reminders.map((r) => ({
+          ...r,
+          reminderDate: new Date(r.reminderDate),
+          createdAt: new Date(r.createdAt),
+          updatedAt: new Date(r.updatedAt),
+        }))
+      ),
       catchError((error) => {
         console.error('Error fetching upcoming reminders', error);
         return throwError(
@@ -96,6 +117,14 @@ export class ReminderService {
 
   getUnreadReminders(): Observable<Reminder[]> {
     return this.http.get<Reminder[]>(`${this.apiUrl}/unread`).pipe(
+      map((reminders) =>
+        reminders.map((r) => ({
+          ...r,
+          reminderDate: new Date(r.reminderDate),
+          createdAt: new Date(r.createdAt),
+          updatedAt: new Date(r.updatedAt),
+        }))
+      ),
       catchError((error) => {
         console.error('Error fetching unread reminders', error);
         return throwError(
@@ -115,6 +144,14 @@ export class ReminderService {
     return this.http
       .get<Reminder[]>(`${this.apiUrl}/appointment/${appointmentId}`)
       .pipe(
+        map((reminders) =>
+          reminders.map((r) => ({
+            ...r,
+            reminderDate: new Date(r.reminderDate),
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt),
+          }))
+        ),
         catchError((error) => {
           console.error(
             `Error fetching reminders for appointment ID: ${appointmentId}`,
@@ -130,11 +167,21 @@ export class ReminderService {
       );
   }
   createReminder(reminder: CreateReminderDto): Observable<Reminder> {
-    return this.http.post<Reminder>(this.apiUrl, reminder).pipe(
+    const reminderToSend = {
+      ...reminder,
+      reminderDate: new Date(reminder.reminderDate).toISOString(),
+    };
+    return this.http.post<Reminder>(this.apiUrl, reminderToSend).pipe(
       tap(() => {
         // Refresh the list after creation
         this.getReminders().subscribe();
       }),
+      map((r) => ({
+        ...r,
+        reminderDate: new Date(r.reminderDate),
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt),
+      })),
       catchError((error) => {
         console.error('Error creating reminder', error);
         return throwError(
@@ -163,7 +210,7 @@ export class ReminderService {
             appointmentId: appointmentId,
             title: 'Appointment Reminder',
             message: message,
-            reminderDate: reminderDate,
+            reminderDate: reminderDate, // Will be converted by createReminder
           };
 
           return this.createReminder(reminderDto);
@@ -185,10 +232,18 @@ export class ReminderService {
         // Update the subject with the reminder marked as read
         const currentReminders = this.reminderSubject.value;
         const updatedReminders = currentReminders.map((reminder) =>
-          reminder.id === id ? { ...reminder, isRead: true } : reminder
+          reminder.id === id
+            ? { ...reminder, isRead: true, updatedAt: new Date() }
+            : reminder
         );
         this.reminderSubject.next(updatedReminders);
       }),
+      map((r) => ({
+        ...r,
+        reminderDate: new Date(r.reminderDate),
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt),
+      })),
       catchError((error) => {
         console.error(`Error marking reminder ${id} as read`, error);
         return throwError(
@@ -214,9 +269,11 @@ export class ReminderService {
         const updatedReminders = currentReminders.map((reminder) => ({
           ...reminder,
           isRead: true,
+          updatedAt: new Date(),
         }));
         this.reminderSubject.next(updatedReminders);
       }),
+      // No specific reminder object to map here, backend returns a count
       catchError((error) => {
         console.error('Error marking all reminders as read', error);
         return throwError(

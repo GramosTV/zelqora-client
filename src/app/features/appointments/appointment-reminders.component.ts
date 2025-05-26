@@ -18,6 +18,7 @@ import {
   Appointment,
   AppointmentStatus,
 } from '../../core/models/appointment.model';
+import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-appointment-reminders',
@@ -264,7 +265,10 @@ import {
                           <mat-chip
                             [class]="getStatusClass(reminder.appointmentId)"
                           >
-                            {{ appointment.status | titlecase }}
+                            {{
+                              getAppointmentStatusString(appointment.status)
+                                | titlecase
+                            }}
                           </mat-chip>
                         </mat-chip-set>
                         <span class="text-sm ml-2">{{
@@ -308,6 +312,9 @@ export class AppointmentRemindersComponent implements OnInit {
     private reminderService: ReminderService,
     private appointmentService: AppointmentService
   ) {}
+  // Add the helper function to the component scope for template access
+  getAppointmentStatusString = getAppointmentStatusString;
+
   ngOnInit(): void {
     this.loadReminders();
 
@@ -457,6 +464,8 @@ export class AppointmentRemindersComponent implements OnInit {
     const appointment = this.appointments[appointmentId];
     if (!appointment) return '';
 
-    return 'status-' + appointment.status.toLowerCase();
+    return (
+      'status-' + getAppointmentStatusString(appointment.status).toLowerCase()
+    );
   }
 }

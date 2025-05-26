@@ -2,7 +2,13 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Appointment, AppointmentStatus } from '../models/appointment.model';
+import {
+  Appointment,
+  AppointmentStatus,
+  CreateAppointmentDto,
+  UpdateAppointmentDto,
+  UpdateAppointmentStatusDto,
+} from '../models/appointment.model';
 import { AuthService } from './auth.service';
 import { UserRole } from '../models/user.model';
 import { environment } from '../../../environments/environment';
@@ -101,14 +107,17 @@ export class AppointmentService {
     appointment: Partial<Appointment>
   ): Observable<Appointment> {
     // Create the appointmentDto object to match the API's expectation
-    const appointmentDto = {
-      title: appointment.title,
-      patientId: appointment.patientId,
-      doctorId: appointment.doctorId,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
+    const appointmentDto: CreateAppointmentDto = {
+      title: appointment.title!,
+      patientId: appointment.patientId!,
+      doctorId: appointment.doctorId!,
+      startTime: appointment.startTime!,
+      endTime: appointment.endTime!,
       notes: appointment.notes,
-      status: this.mapStatusToNumber(appointment.status),
+      status:
+        appointment.status !== undefined
+          ? appointment.status
+          : AppointmentStatus.PENDING,
     };
 
     return this.http.post<Appointment>(this.apiUrl, appointmentDto).pipe(
@@ -126,16 +135,19 @@ export class AppointmentService {
     appointment: Partial<Appointment>
   ): Observable<Appointment> {
     // Create a DTO object for the API
-    const updateDto: any = {
-      title: appointment.title,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
-      notes: appointment.notes,
-    };
+    const updateDto: UpdateAppointmentDto = {};
 
-    // Map the status if present
+    // Only include properties that are defined
+    if (appointment.title !== undefined) updateDto.title = appointment.title;
+    if (appointment.startTime !== undefined)
+      updateDto.startTime = appointment.startTime;
+    if (appointment.endTime !== undefined)
+      updateDto.endTime = appointment.endTime;
+    if (appointment.notes !== undefined) updateDto.notes = appointment.notes;
+
+    // Map the status if present - make sure it's a number for the backend
     if (appointment.status !== undefined) {
-      updateDto.status = this.mapStatusToNumber(appointment.status);
+      updateDto.status = appointment.status;
     }
 
     return this.http.patch<Appointment>(`${this.apiUrl}/${id}`, updateDto).pipe(
@@ -164,12 +176,28 @@ export class AppointmentService {
     id: string,
     status: AppointmentStatus
   ): Observable<Appointment> {
-    return this.updateAppointment(id, { status });
+    const statusDto: UpdateAppointmentStatusDto = { status };
+    return this.http
+      .patch<Appointment>(`${this.apiUrl}/${id}/status`, statusDto)
+      .pipe(
+        catchError((error) => {
+          console.error(
+            `Error updating appointment status for id ${id}`,
+            error
+          );
+          return throwError(
+            () =>
+              new Error(
+                'Failed to update appointment status. Please try again later.'
+              )
+          );
+        })
+      );
   }
 
   // Helper method to map string status to numeric enum for backend
   private mapStatusToNumber(status?: AppointmentStatus): number {
-    if (!status) return 0; // Default to Pending (0)
+    if (status === undefined) return 0; // Default to Pending (0)
 
     switch (status) {
       case AppointmentStatus.PENDING:
@@ -181,7 +209,9 @@ export class AppointmentService {
       case AppointmentStatus.COMPLETED:
         return 3;
       default:
-        return 0;
+        // Ensure all cases are handled, or provide a default for exhaustiveness
+        const exhaustiveCheck: never = status;
+        return exhaustiveCheck;
     }
   }
 
@@ -214,7 +244,6 @@ export class AppointmentService {
       })
     );
   }
-
   getAppointmentsByDateRange(
     startDate: Date,
     endDate: Date
@@ -236,5 +265,10 @@ export class AppointmentService {
         );
       })
     );
+  }
+
+  // Helper method to convert status values to match the API's expectations
+  private getApiStatusValue(status: AppointmentStatus): number {
+    return Number(status);
   }
 }

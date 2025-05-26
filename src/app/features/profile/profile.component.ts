@@ -17,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { User, UserRole } from '../../core/models/user.model';
+import { getUserRoleString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-profile',
@@ -72,7 +73,7 @@ import { User, UserRole } from '../../core/models/user.model';
               <div
                 class="mt-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
               >
-                {{ currentUser.role | titlecase }}
+                {{ getUserRoleString(currentUser.role) | titlecase }}
               </div>
 
               <p class="text-gray-500 mt-3">{{ currentUser.email }}</p>
@@ -273,6 +274,7 @@ export class ProfileComponent implements OnInit {
   isDoctor = false;
   UserRole = UserRole;
   isSubmitting = false;
+  getUserRoleString = getUserRoleString;
 
   profileForm!: FormGroup;
   passwordForm!: FormGroup;

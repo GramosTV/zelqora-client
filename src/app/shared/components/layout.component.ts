@@ -16,6 +16,7 @@ import { ReminderService } from '../../core/services/reminder.service';
 import { User, UserRole } from '../../core/models/user.model';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
+import { getUserRoleString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-layout',
@@ -199,7 +200,7 @@ import { take } from 'rxjs/operators';
                   'text-purple-600': user.role === UserRole.ADMIN
                 }"
               >
-                {{ user.role | titlecase }}
+                {{ getUserRoleString(user.role) | titlecase }}
               </p>
             </div>
             <mat-divider></mat-divider>
@@ -245,7 +246,7 @@ import { take } from 'rxjs/operators';
                     {{ user.firstName }} {{ user.lastName }}
                   </div>
                   <div class="text-xs text-blue-600 font-medium">
-                    {{ user.role | titlecase }}
+                    {{ getUserRoleString(user.role) | titlecase }}
                   </div>
                 </div>
               </div>
@@ -392,6 +393,7 @@ export class LayoutComponent implements OnInit {
 
   // Make UserRole available to the template
   UserRole = UserRole;
+  getUserRoleString = getUserRoleString;
 
   currentUser$: Observable<User | null>;
   isAdmin$: Observable<boolean>;

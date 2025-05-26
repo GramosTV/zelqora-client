@@ -2,7 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
-import { Message } from '../models/message.model';
+import {
+  Message,
+  CreateMessageDto,
+  UpdateMessageDto,
+} from '../models/message.model';
 import { AuthService } from './auth.service';
 import { EncryptionService } from './encryption.service';
 import { environment } from '../../../environments/environment';
@@ -92,7 +96,7 @@ export class MessageService {
     // Generate an integrity hash for the message
     const integrityHash = this.encryptionService.generateHash(message.content!);
 
-    const messageDto = {
+    const messageDto: CreateMessageDto = {
       receiverId: message.receiverId!,
       content: content,
       encrypted: shouldEncrypt,
@@ -116,10 +120,13 @@ export class MessageService {
       })
     );
   }
-
   markAsRead(messageId: string): Observable<Message> {
+    const updateDto: UpdateMessageDto = {
+      read: true,
+    };
+
     return this.http
-      .patch<Message>(`${this.apiUrl}/${messageId}/read`, {})
+      .patch<Message>(`${this.apiUrl}/${messageId}/read`, updateDto)
       .pipe(
         catchError((error) => {
           console.error('Error marking message as read', error);

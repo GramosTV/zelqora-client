@@ -4,6 +4,7 @@ import { Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { TokenService } from './token.service';
+import { RefreshTokenDto } from '../models/user.model';
 
 interface TokenResponse {
   accessToken: string;
@@ -24,9 +25,9 @@ export class RefreshTokenService {
     if (!refreshToken) {
       return throwError(() => new Error('No refresh token available'));
     }
-
+    const refreshTokenDto: RefreshTokenDto = { refreshToken };
     return this.http
-      .post<TokenResponse>(`${this.apiUrl}/refresh-token`, { refreshToken })
+      .post<TokenResponse>(`${this.apiUrl}/refresh-token`, refreshTokenDto)
       .pipe(
         tap((tokens) => {
           this.tokenService.saveTokens(tokens.accessToken, tokens.refreshToken);

@@ -13,6 +13,7 @@ import {
   Appointment,
   AppointmentStatus,
 } from '../../core/models/appointment.model';
+import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 
 // Import FullCalendar core and plugins
 import {
@@ -206,21 +207,23 @@ export class AppointmentCalendarComponent implements OnInit {
     this.router.navigate(['/appointments', appointmentId]);
   }
   handleEventClassNames(arg: any): string[] {
-    const status = arg.event.extendedProps.status;
-    return [`status-${status.toLowerCase()}`];
+    const status = arg.event.extendedProps.status as AppointmentStatus;
+    return [`status-${getAppointmentStatusString(status).toLowerCase()}`];
   }
 
   /**
    * Format the event display to show additional details
    */
   private formatEventTitle(appointment: Appointment): string {
-    const status = appointment.status.charAt(0).toUpperCase();
+    const statusString = getAppointmentStatusString(appointment.status);
     const time = new Date(appointment.startTime).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });
 
-    return `[${status}] ${time} - ${appointment.title}`;
+    return `[${statusString.charAt(0).toUpperCase()}] ${time} - ${
+      appointment.title
+    }`;
   }
 
   /**
@@ -317,7 +320,7 @@ export class AppointmentCalendarComponent implements OnInit {
    */
   handleEventDidMount(info: any): void {
     const event = info.event;
-    const status = event.extendedProps.status;
+    const status = event.extendedProps.status as AppointmentStatus;
     const originalTitle = event.extendedProps.originalTitle;
     const startTime = event.start?.toLocaleTimeString([], {
       hour: '2-digit',
@@ -334,7 +337,7 @@ export class AppointmentCalendarComponent implements OnInit {
     tooltip.innerHTML = `
       <strong>${originalTitle}</strong><br>
       <span>Time: ${startTime} - ${endTime}</span><br>
-      <span>Status: ${status.charAt(0).toUpperCase() + status.slice(1)}</span>
+      <span>Status: ${getAppointmentStatusString(status)}</span>
     `;
     tooltip.style.position = 'absolute';
     tooltip.style.zIndex = '10000';

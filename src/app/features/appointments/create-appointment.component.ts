@@ -22,7 +22,7 @@ import { AppointmentService } from '../../core/services/appointment.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ReminderService } from '../../core/services/reminder.service';
-import { User, UserRole } from '../../core/models/user.model';
+import { User, UserRole, DoctorDto } from '../../core/models/user.model';
 import { AppointmentStatus } from '../../core/models/appointment.model';
 
 @Component({
@@ -231,7 +231,7 @@ import { AppointmentStatus } from '../../core/models/appointment.model';
 export class CreateAppointmentComponent implements OnInit {
   appointmentForm!: FormGroup;
   currentUser: User | null = null;
-  doctors: User[] = [];
+  doctors: DoctorDto[] = [];
   isPatient = false;
   minDate = new Date();
   isSubmitting = false;
@@ -272,6 +272,10 @@ export class CreateAppointmentComponent implements OnInit {
     this.currentUser = this.authService.getCurrentUser();
     this.isPatient = this.currentUser?.role === UserRole.PATIENT;
 
+    console.log('Current User:', this.currentUser);
+    console.log('Is Patient:', this.isPatient);
+    console.log('User Role:', this.currentUser?.role);
+
     // Check for pre-selected date and time from calendar
     this.route.queryParams.subscribe((params) => {
       if (params['start'] && params['end']) {
@@ -281,12 +285,23 @@ export class CreateAppointmentComponent implements OnInit {
     });
 
     // Initialize form
-    this.initForm();
-
-    // Load doctors for selection (if user is a patient)
+    this.initForm(); // Load doctors for selection (if user is a patient)
     if (this.isPatient) {
-      this.userService.getDoctors().subscribe((doctors) => {
-        this.doctors = doctors;
+      console.log('Loading doctors for patient...');
+      this.userService.getDoctorList().subscribe({
+        next: (doctors) => {
+          console.log('Doctors loaded:', doctors);
+          this.doctors = doctors;
+          this.snackBar.open(`Loaded ${doctors.length} doctors`, 'Close', {
+            duration: 3000,
+          });
+        },
+        error: (error) => {
+          console.error('Error loading doctors:', error);
+          this.snackBar.open('Failed to load doctors list', 'Close', {
+            duration: 3000,
+          });
+        },
       });
     }
   }

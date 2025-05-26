@@ -17,6 +17,7 @@ import {
 } from '../../core/models/appointment.model';
 import { User, UserRole } from '../../core/models/user.model';
 import { RouterModule } from '@angular/router';
+import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-appointment-details',
@@ -42,8 +43,8 @@ import { RouterModule } from '@angular/router';
               {{ appointment.title }}
             </h1>
             <mat-chip-set>
-              <mat-chip class="status-{{ appointment.status }}">
-                {{ appointment.status | titlecase }}
+              <mat-chip [ngClass]="getStatusClass(appointment.status)">
+                {{ getAppointmentStatusString(appointment.status) | titlecase }}
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -230,6 +231,7 @@ export class AppointmentDetailsComponent implements OnInit {
   error: string | null = null;
 
   AppointmentStatus = AppointmentStatus;
+  getAppointmentStatusString = getAppointmentStatusString;
 
   constructor(
     private route: ActivatedRoute,
@@ -288,6 +290,7 @@ export class AppointmentDetailsComponent implements OnInit {
       },
     });
   }
+
   getStatusColor(status: AppointmentStatus): string {
     switch (status) {
       case AppointmentStatus.CONFIRMED:
@@ -301,6 +304,10 @@ export class AppointmentDetailsComponent implements OnInit {
       default:
         return '';
     }
+  }
+
+  getStatusClass(status: AppointmentStatus): string {
+    return `status-${getAppointmentStatusString(status).toLowerCase()}`;
   }
 
   updateStatus(status: AppointmentStatus): void {

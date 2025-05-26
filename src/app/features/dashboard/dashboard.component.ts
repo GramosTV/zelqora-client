@@ -22,6 +22,7 @@ import {
   Appointment,
   AppointmentStatus,
 } from '../../core/models/appointment.model';
+import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-dashboard',
@@ -169,12 +170,15 @@ import {
                     <h3 class="font-medium">{{ appointment.title }}</h3>
                     <mat-chip-set>
                       <mat-chip
-                        class="status-{{ appointment.status.toLowerCase() }}"
+                        [ngClass]="getStatusClass(appointment.status)"
                         matTooltip="Appointment status: {{
-                          appointment.status
+                          getAppointmentStatusString(appointment.status)
                         }}"
                       >
-                        {{ appointment.status | titlecase }}
+                        {{
+                          getAppointmentStatusString(appointment.status)
+                            | titlecase
+                        }}
                       </mat-chip>
                     </mat-chip-set>
                   </div>
@@ -504,6 +508,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Make AppointmentStatus available to the template
   AppointmentStatus = AppointmentStatus;
+  getAppointmentStatusString = getAppointmentStatusString;
+
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
@@ -806,5 +812,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return isDoctor
       ? `Dr. ${personId.substring(0, 5)}`
       : `Patient ${personId.substring(0, 5)}`;
+  }
+
+  getStatusClass(status: AppointmentStatus): string {
+    if (status === undefined || status === null) return '';
+    return `status-${getAppointmentStatusString(status).toLowerCase()}`;
   }
 }

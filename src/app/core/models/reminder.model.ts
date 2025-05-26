@@ -7,10 +7,10 @@ export interface Reminder {
   appointmentId: string;
   title: string;
   message: string;
-  reminderDate: Date | string;
+  reminderDate: Date;
   isRead: boolean;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  createdAt: Date;
+  updatedAt: Date;
   user?: User;
   appointment?: Appointment;
 }
@@ -20,7 +20,7 @@ export interface CreateReminderDto {
   appointmentId: string;
   title: string;
   message: string;
-  reminderDate: Date | string;
+  reminderDate: Date | string; // Keep as Date | string for flexibility in creation, service will handle conversion
 }
 
 export interface UpdateReminderDto {

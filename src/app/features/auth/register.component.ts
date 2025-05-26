@@ -7,7 +7,7 @@ import {
 } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { UserRole } from '../../core/models/user.model';
+import { UserRole, UserRegistrationDto } from '../../core/models/user.model'; // Corrected import
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -272,15 +272,18 @@ export class RegisterComponent {
 
     const { firstName, lastName, email, password, role, specialization } =
       this.registerForm.value;
+    // Construct UserRegistrationDto from form values
+    const registrationDto: UserRegistrationDto = {
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      specialization: role === UserRole.DOCTOR ? specialization : undefined,
+    };
+
     this.authService
-      .register({
-        email,
-        firstName,
-        lastName,
-        password, // Add the password field
-        role,
-        specialization: role === UserRole.DOCTOR ? specialization : undefined,
-      })
+      .register(registrationDto) // Pass the DTO object
       .subscribe({
         next: () => {
           this.router.navigate(['/dashboard']);

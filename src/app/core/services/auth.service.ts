@@ -2,7 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
-import { User, UserRole } from '../models/user.model';
+import {
+  User,
+  UserRole,
+  UserRegistrationDto,
+  UserLoginDto,
+  RefreshTokenDto,
+  ChangePasswordDto,
+} from '../models/user.model';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { TokenService } from './token.service';
@@ -94,47 +101,35 @@ export class AuthService {
     );
   }
   login(email: string, password: string): Observable<User> {
-    return this.http
-      .post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
-      .pipe(
-        tap((response) => {
-          this.tokenService.saveTokens(
-            response.accessToken,
-            response.refreshToken
-          );
-          localStorage.setItem('currentUser', JSON.stringify(response.user));
-          this.currentUserSubject.next(response.user);
-          this.startRefreshTokenTimer();
-        }),
-        map((response) => response.user),
-        catchError((error) => {
-          return throwError(
-            () => new Error(error.error?.message || 'Invalid email or password')
-          );
-        })
-      );
+    const loginDto: UserLoginDto = { email, password };
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, loginDto).pipe(
+      tap((response) => {
+        this.tokenService.saveTokens(
+          response.accessToken,
+          response.refreshToken
+        );
+        localStorage.setItem('currentUser', JSON.stringify(response.user));
+        this.currentUserSubject.next(response.user);
+        this.startRefreshTokenTimer();
+      }),
+      map((response) => response.user),
+      catchError((error) => {
+        return throwError(
+          () => new Error(error.error?.message || 'Invalid email or password')
+        );
+      })
+    );
   }
-  register(user: Partial<User>): Observable<User> {
-    // Map the UserRole enum value to match the C# backend's expected enum values
-    let mappedRole: number;
-
-    switch (user.role) {
-      case UserRole.PATIENT:
-        mappedRole = 0; // Patient enum value in C#
-        break;
-      case UserRole.DOCTOR:
-        mappedRole = 1; // Doctor enum value in C#
-        break;
-      case UserRole.ADMIN:
-        mappedRole = 2; // Admin enum value in C#
-        break;
-      default:
-        mappedRole = 0; // Default to Patient
-    }
-
-    const registrationData = {
-      ...user,
-      role: mappedRole,
+  register(userData: UserRegistrationDto): Observable<User> {
+    // Create a proper registration DTO that matches the backend expectations
+    // The incoming userData is already a UserRegistrationDto
+    const registrationData: UserRegistrationDto = {
+      email: userData.email,
+      password: userData.password,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      role: userData.role !== undefined ? userData.role : UserRole.PATIENT,
+      specialization: userData.specialization,
     };
 
     return this.http
