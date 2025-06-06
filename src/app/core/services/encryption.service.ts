@@ -12,7 +12,7 @@ export class EncryptionService {
    * @param message Plain text message to encrypt
    * @returns Encrypted message
    */
-  encrypt(message: string): string {
+  public encrypt(message: string): string {
     if (!message) return '';
     return CryptoJS.AES.encrypt(message, this.SECRET_KEY).toString();
   }
@@ -22,7 +22,7 @@ export class EncryptionService {
    * @param encryptedMessage Encrypted message to decrypt
    * @returns Decrypted plain text message
    */
-  decrypt(encryptedMessage: string): string {
+  public decrypt(encryptedMessage: string): string {
     if (!encryptedMessage) return '';
     const bytes = CryptoJS.AES.decrypt(encryptedMessage, this.SECRET_KEY);
     return bytes.toString(CryptoJS.enc.Utf8);
@@ -33,7 +33,7 @@ export class EncryptionService {
    * @param message Message to hash
    * @returns SHA256 hash of the message
    */
-  generateHash(message: string): string {
+  public generateHash(message: string): string {
     return CryptoJS.SHA256(message).toString();
   }
 
@@ -43,7 +43,7 @@ export class EncryptionService {
    * @param hash Hash to compare against
    * @returns Boolean indicating if the message matches the hash
    */
-  verifyHash(message: string, hash: string): boolean {
+  public verifyHash(message: string, hash: string): boolean {
     return this.generateHash(message) === hash;
   }
 }

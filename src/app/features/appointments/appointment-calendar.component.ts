@@ -1,9 +1,15 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  inject,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -15,7 +21,6 @@ import {
 } from '../../core/models/appointment.model';
 import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 
-// Import FullCalendar core and plugins
 import {
   CalendarOptions,
   EventClickArg,
@@ -34,6 +39,7 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'app-appointment-calendar',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -133,11 +139,11 @@ import { Router } from '@angular/router';
   ],
 })
 export class AppointmentCalendarComponent implements OnInit {
-  @ViewChild('calendar') calendarComponent!: FullCalendarComponent;
+  @ViewChild('calendar') public calendarComponent!: FullCalendarComponent;
 
-  currentUser: User | null = null;
-  appointments: Appointment[] = [];
-  calendarOptions: CalendarOptions = {
+  public currentUser: User | null = null;
+  public appointments: Appointment[] = [];
+  public calendarOptions: CalendarOptions = {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     initialView: 'timeGridWeek',
     headerToolbar: {
@@ -169,19 +175,18 @@ export class AppointmentCalendarComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
-
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
     this.loadAppointments();
   }
 
-  loadAppointments(): void {
+  public loadAppointments(): void {
     if (!this.currentUser) return;
 
     this.appointmentService
       .getAppointmentsByUser(this.currentUser.id)
       .subscribe((appointments) => {
-        this.appointments = appointments; // Format appointments for the calendar
+        this.appointments = appointments;
         const events = this.appointments.map((appointment) => {
           return {
             id: appointment.id,
@@ -228,9 +233,7 @@ export class AppointmentCalendarComponent implements OnInit {
 
   /**
    * Handle when user selects a date range to create a new appointment
-   */
-  handleDateSelect(selectInfo: DateSelectArg): void {
-    // Check if the user is authorized to create appointments
+   */ handleDateSelect(selectInfo: DateSelectArg): void {
     if (!this.currentUser) {
       this.snackBar.open(
         'You must be logged in to create appointments',
@@ -240,7 +243,6 @@ export class AppointmentCalendarComponent implements OnInit {
       return;
     }
 
-    // Navigate to the appointment creation page with pre-filled date and time
     this.router.navigate(['/appointments/new'], {
       queryParams: {
         start: selectInfo.startStr,
@@ -331,7 +333,6 @@ export class AppointmentCalendarComponent implements OnInit {
       minute: '2-digit',
     });
 
-    // Create tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'appointment-tooltip';
     tooltip.innerHTML = `

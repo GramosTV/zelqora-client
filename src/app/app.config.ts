@@ -1,33 +1,26 @@
 import {
   ApplicationConfig,
   provideZoneChangeDetection,
-  importProvidersFrom,
   inject,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import {
   provideHttpClient,
   withInterceptors,
-  HTTP_INTERCEPTORS,
-  HttpHandlerFn,
   HttpInterceptorFn,
-  HttpRequest,
   HttpErrorResponse,
 } from '@angular/common/http';
 import { provideToastr } from 'ngx-toastr';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { JwtHelperService, JWT_OPTIONS } from '@auth0/angular-jwt';
 import { catchError, switchMap } from 'rxjs/operators';
-import { of, throwError } from 'rxjs';
+import { throwError } from 'rxjs';
 
 import { routes } from './app.routes';
-import { AuthInterceptor } from './core/interceptors/auth.interceptor';
-import { AuthService } from './core/services/auth.service';
 import { TokenService } from './core/services/token.service';
 import { RefreshTokenService } from './core/services/refresh-token.service';
 import { ToastrService } from 'ngx-toastr';
 
-// Create an HttpInterceptorFn that wraps our class-based interceptor
 export const errorInterceptorFn: HttpInterceptorFn = (req, next) => {
   const toastr = inject(ToastrService);
 
@@ -68,7 +61,6 @@ export const authInterceptorFn: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  // Add token to authenticated requests
   const token = tokenService.getAccessToken();
   if (token) {
     req = req.clone({
@@ -80,10 +72,8 @@ export const authInterceptorFn: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401 && !req.url.includes('refresh-token')) {
-        // Try to refresh the token
         return refreshTokenService.refreshToken().pipe(
           switchMap((tokens: { accessToken: string; refreshToken: string }) => {
-            // Retry the request with the new token
             const newReq = req.clone({
               setHeaders: {
                 Authorization: `Bearer ${tokens.accessToken}`,
@@ -91,7 +81,7 @@ export const authInterceptorFn: HttpInterceptorFn = (req, next) => {
             });
             return next(newReq);
           }),
-          catchError((refreshError: any) => {
+          catchError((refreshError: unknown) => {
             // If refresh fails, just clear tokens
             tokenService.removeTokens();
             return throwError(() => refreshError);

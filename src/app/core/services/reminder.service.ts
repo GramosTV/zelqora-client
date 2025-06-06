@@ -18,21 +18,18 @@ export class ReminderService {
   private reminderSubject = new BehaviorSubject<Reminder[]>([]);
   public reminders$ = this.reminderSubject.asObservable();
   private initialized = false;
-
   constructor(private http: HttpClient, private authService: AuthService) {
-    // Load initial reminders once if user is logged in
     this.authService.currentUser$.subscribe((user) => {
       if (user && !this.initialized) {
         this.initialized = true;
         this.getReminders().subscribe();
       } else if (!user) {
-        // Clear reminders when logged out
         this.initialized = false;
         this.reminderSubject.next([]);
       }
     });
   }
-  getReminders(): Observable<Reminder[]> {
+  public getReminders(): Observable<Reminder[]> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
       return new Observable((observer) => {
@@ -76,7 +73,7 @@ export class ReminderService {
         })
       );
   }
-  getReminderById(id: string): Observable<Reminder> {
+  public getReminderById(id: string): Observable<Reminder> {
     return this.http.get<Reminder>(`${this.apiUrl}/${id}`).pipe(
       map((r) => ({
         ...r,
@@ -93,7 +90,7 @@ export class ReminderService {
     );
   }
 
-  getUpcomingReminders(): Observable<Reminder[]> {
+  public getUpcomingReminders(): Observable<Reminder[]> {
     return this.http.get<Reminder[]>(`${this.apiUrl}/upcoming`).pipe(
       map((reminders) =>
         reminders.map((r) => ({
@@ -115,7 +112,7 @@ export class ReminderService {
     );
   }
 
-  getUnreadReminders(): Observable<Reminder[]> {
+  public getUnreadReminders(): Observable<Reminder[]> {
     return this.http.get<Reminder[]>(`${this.apiUrl}/unread`).pipe(
       map((reminders) =>
         reminders.map((r) => ({
@@ -136,11 +133,12 @@ export class ReminderService {
       })
     );
   }
-
-  getUnreadRemindersCount(): Observable<number> {
+  public getUnreadRemindersCount(): Observable<number> {
     return this.getUnreadReminders().pipe(map((reminders) => reminders.length));
   }
-  getRemindersByAppointment(appointmentId: string): Observable<Reminder[]> {
+  public getRemindersByAppointment(
+    appointmentId: string
+  ): Observable<Reminder[]> {
     return this.http
       .get<Reminder[]>(`${this.apiUrl}/appointment/${appointmentId}`)
       .pipe(
@@ -166,14 +164,13 @@ export class ReminderService {
         })
       );
   }
-  createReminder(reminder: CreateReminderDto): Observable<Reminder> {
+  public createReminder(reminder: CreateReminderDto): Observable<Reminder> {
     const reminderToSend = {
       ...reminder,
       reminderDate: new Date(reminder.reminderDate).toISOString(),
     };
     return this.http.post<Reminder>(this.apiUrl, reminderToSend).pipe(
       tap(() => {
-        // Refresh the list after creation
         this.getReminders().subscribe();
       }),
       map((r) => ({
@@ -190,7 +187,7 @@ export class ReminderService {
       })
     );
   }
-  createCustomReminder(
+  public createCustomReminder(
     appointmentId: string,
     message: string,
     reminderDate: Date | string
@@ -204,13 +201,13 @@ export class ReminderService {
     return this.http
       .get<any>(`${environment.apiUrl}/appointments/${appointmentId}`)
       .pipe(
-        switchMap((appointment) => {
+        switchMap((_appointment) => {
           const reminderDto: CreateReminderDto = {
             userId: currentUser.id,
-            appointmentId: appointmentId,
+            appointmentId,
             title: 'Appointment Reminder',
-            message: message,
-            reminderDate: reminderDate, // Will be converted by createReminder
+            message,
+            reminderDate, // Will be converted by createReminder
           };
 
           return this.createReminder(reminderDto);
@@ -226,10 +223,9 @@ export class ReminderService {
         })
       );
   }
-  markAsRead(id: string): Observable<Reminder> {
+  public markAsRead(id: string): Observable<Reminder> {
     return this.http.patch<Reminder>(`${this.apiUrl}/${id}/read`, {}).pipe(
       tap(() => {
-        // Update the subject with the reminder marked as read
         const currentReminders = this.reminderSubject.value;
         const updatedReminders = currentReminders.map((reminder) =>
           reminder.id === id
@@ -255,16 +251,13 @@ export class ReminderService {
       })
     );
   }
-  markAllAsRead(): Observable<any> {
+  public markAllAsRead(): Observable<any> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
       return throwError(() => new Error('User not authenticated'));
     }
-
-    // Call the mark-all-read endpoint on the API
     return this.http.patch<any>(`${this.apiUrl}/mark-all-read`, {}).pipe(
       tap(() => {
-        // Update all reminders as read in our local subject
         const currentReminders = this.reminderSubject.value;
         const updatedReminders = currentReminders.map((reminder) => ({
           ...reminder,
@@ -285,10 +278,9 @@ export class ReminderService {
       })
     );
   }
-  deleteReminder(id: string): Observable<any> {
+  public deleteReminder(id: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`).pipe(
       tap(() => {
-        // Remove the deleted reminder from the subject
         const currentReminders = this.reminderSubject.value;
         this.reminderSubject.next(
           currentReminders.filter((reminder) => reminder.id !== id)

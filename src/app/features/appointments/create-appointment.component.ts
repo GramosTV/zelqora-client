@@ -1,4 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
@@ -28,6 +33,7 @@ import { AppointmentStatus } from '../../core/models/appointment.model';
 @Component({
   selector: 'app-create-appointment',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,
@@ -258,8 +264,6 @@ export class CreateAppointmentComponent implements OnInit {
     { value: '16:00', display: '4:00 PM' },
     { value: '16:30', display: '4:30 PM' },
   ];
-
-  // Use dependency injection
   private fb = inject(FormBuilder);
   private appointmentService = inject(AppointmentService);
   private userService = inject(UserService);
@@ -275,17 +279,13 @@ export class CreateAppointmentComponent implements OnInit {
     console.log('Current User:', this.currentUser);
     console.log('Is Patient:', this.isPatient);
     console.log('User Role:', this.currentUser?.role);
-
-    // Check for pre-selected date and time from calendar
     this.route.queryParams.subscribe((params) => {
       if (params['start'] && params['end']) {
         this.preselectedStartDate = new Date(params['start']);
         this.preselectedEndDate = new Date(params['end']);
       }
     });
-
-    // Initialize form
-    this.initForm(); // Load doctors for selection (if user is a patient)
+    this.initForm();
     if (this.isPatient) {
       console.log('Loading doctors for patient...');
       this.userService.getDoctorList().subscribe({
@@ -306,7 +306,6 @@ export class CreateAppointmentComponent implements OnInit {
     }
   }
   initForm(): void {
-    // Set default values from calendar if they exist
     const currentDate = new Date();
     let defaultDate = '';
     let defaultStartTime = '';
@@ -334,11 +333,10 @@ export class CreateAppointmentComponent implements OnInit {
       startTime: [defaultStartTime || '', Validators.required],
       endTime: [defaultEndTime || '', Validators.required],
       notes: [''],
-      createReminder: [true], // Option to create a reminder for this appointment
-      reminderMessage: [''], // Custom reminder message (optional)
+      createReminder: [true],
+      reminderMessage: [''],
     });
 
-    // Update end time options when start time changes
     this.appointmentForm.get('startTime')?.valueChanges.subscribe(() => {
       const endTimeControl = this.appointmentForm.get('endTime');
       if (
@@ -372,16 +370,12 @@ export class CreateAppointmentComponent implements OnInit {
 
     const formValue = this.appointmentForm.value;
     const selectedDate = new Date(formValue.date);
-
-    // Create start time
     const [startHour, startMinute] = formValue.startTime.split(':').map(Number);
     const startTime = new Date(selectedDate);
     startTime.setHours(startHour, startMinute);
-
-    // Create end time
     const [endHour, endMinute] = formValue.endTime.split(':').map(Number);
     const endTime = new Date(selectedDate);
-    endTime.setHours(endHour, endMinute); // Create appointment data - patientId must be a string, never null
+    endTime.setHours(endHour, endMinute);
     const appointmentData = {
       title: formValue.title,
       startTime,
@@ -389,16 +383,14 @@ export class CreateAppointmentComponent implements OnInit {
       notes: formValue.notes || '',
       patientId: this.isPatient
         ? this.currentUser.id
-        : formValue.patientId || this.currentUser.id, // Ensure a valid patient ID
+        : formValue.patientId || this.currentUser.id,
       doctorId: this.isPatient ? formValue.doctorId : this.currentUser.id,
-      status: AppointmentStatus.PENDING, // Use the enum for status
+      status: AppointmentStatus.PENDING,
     };
 
     this.appointmentService.createAppointment(appointmentData).subscribe({
       next: (createdAppointment) => {
-        // Create reminder if option was selected
         if (formValue.createReminder) {
-          // Create reminder one day before appointment
           const reminderDate = new Date(startTime);
           reminderDate.setDate(reminderDate.getDate() - 1);
           this.createAppointmentReminder(createdAppointment, reminderDate);
@@ -420,12 +412,11 @@ export class CreateAppointmentComponent implements OnInit {
         this.isSubmitting = false;
       },
     });
-  } // Helper method to create a reminder
+  }
   private createAppointmentReminder(
     appointment: any,
     reminderDate: Date
   ): void {
-    // Use custom message if provided, otherwise use the default
     const customMessage = this.appointmentForm.get('reminderMessage')?.value;
     let message = customMessage;
 
@@ -452,8 +443,6 @@ export class CreateAppointmentComponent implements OnInit {
         },
         error: (err) => {
           console.error('Error creating reminder', err);
-          // Create a notification even if there's an error with the reminder
-          // This ensures the user knows about their appointment
           this.snackBar.open(
             'Appointment created, but reminder setup failed',
             'Close',

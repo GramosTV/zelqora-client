@@ -11,7 +11,7 @@ export interface User {
   lastName: string;
   role: UserRole;
   profilePicture?: string;
-  specialization?: string; // For doctors
+  specialization?: string;
   createdAt: Date;
   updatedAt: Date;
 }

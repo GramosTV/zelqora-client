@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -8,15 +8,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
-import { AuthService } from '\.\.\/\.\.\/core/services/auth.service';
-import { MessageService } from '\.\.\/\.\.\/core/services/message.service';
-import { UserService } from '\.\.\/\.\.\/core/services/user.service';
-import { User, UserRole } from '\.\.\/\.\.\/core/models/user.model';
-import { Message } from '\.\.\/\.\.\/core/models/message.model';
+import { AuthService } from '../../core/services/auth.service';
+import { MessageService } from '../../core/services/message.service';
+import { UserService } from '../../core/services/user.service';
+import { User, UserRole } from '../../core/models/user.model';
+import { Message } from '../../core/models/message.model';
 
 @Component({
   selector: 'app-messaging',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,
@@ -49,7 +50,7 @@ import { Message } from '\.\.\/\.\.\/core/models/message.model';
               <ng-container *ngIf="contacts.length; else noContacts">
                 <a
                   mat-list-item
-                  *ngFor="let contact of contacts"
+                  *ngFor="let contact of contacts; trackBy: trackByUserId"
                   (click)="selectContact(contact)"
                   [class.bg-blue-50]="selectedContact?.id === contact.id"
                 >
@@ -159,7 +160,10 @@ import { Message } from '\.\.\/\.\.\/core/models/message.model';
               </div>
 
               <div
-                *ngFor="let message of currentConversation"
+                *ngFor="
+                  let message of currentConversation;
+                  trackBy: trackByMessageId
+                "
                 class="mb-4 max-w-[75%]"
                 [class.ml-auto]="message.senderId === currentUser?.id"
               >
@@ -197,6 +201,7 @@ import { Message } from '\.\.\/\.\.\/core/models/message.model';
                     color="primary"
                     type="submit"
                     [disabled]="!messageControl.value"
+                    aria-label="Send message"
                   >
                     <mat-icon>send</mat-icon>
                   </button>
@@ -247,20 +252,23 @@ export class MessagingComponent implements OnInit {
       this.loadMessages();
     }
   }
+  public trackByUserId(index: number, item: User): string {
+    return item.id;
+  }
+
+  public trackByMessageId(index: number, item: Message): string {
+    return item.id;
+  }
 
   loadContacts(): void {
     const userRole = this.currentUser?.role;
 
     this.userService.getAllUsers().subscribe((users) => {
-      // Filter contacts based on user role
       if (userRole === UserRole.DOCTOR) {
-        // Doctors see patients
         this.contacts = users.filter((u) => u.role === UserRole.PATIENT);
       } else if (userRole === UserRole.PATIENT) {
-        // Patients see doctors
         this.contacts = users.filter((u) => u.role === UserRole.DOCTOR);
       } else {
-        // Admins see everyone
         this.contacts = users.filter((u) => u.id !== this.currentUser?.id);
       }
     });
@@ -305,23 +313,18 @@ export class MessagingComponent implements OnInit {
       .getConversation(this.currentUser.id, contact.id)
       .subscribe((messages) => {
         this.currentConversation = messages;
-
-        // Mark messages as read
         this.markMessagesAsRead();
       });
   }
 
   markMessagesAsRead(): void {
     if (!this.currentUser || !this.selectedContact) return;
-
-    // Find unread messages from the selected contact
     const unreadFromContact = this.unreadMessages.filter(
       (m) => m.senderId === this.selectedContact?.id
     );
 
     unreadFromContact.forEach((message) => {
       this.messageService.markAsRead(message.id).subscribe(() => {
-        // Update the message in the current conversation
         const index = this.currentConversation.findIndex(
           (m) => m.id === message.id
         );
@@ -331,8 +334,6 @@ export class MessagingComponent implements OnInit {
             read: true,
           };
         }
-
-        // Update unread messages list
         this.findUnreadMessages();
       });
     });

@@ -1,4 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -19,6 +24,7 @@ import { User, UserRole } from '../../core/models/user.model';
 @Component({
   selector: 'app-appointment-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -279,24 +285,36 @@ import { User, UserRole } from '../../core/models/user.model';
   `,
 })
 export class AppointmentListComponent implements OnInit {
-  appointments: Appointment[] = [];
-  upcomingAppointments: Appointment[] = [];
-  pastAppointments: Appointment[] = [];
+  public appointments: Appointment[] = [];
+  public upcomingAppointments: Appointment[] = [];
+  public pastAppointments: Appointment[] = [];
 
-  displayedColumns: string[] = ['title', 'date', 'person', 'status', 'actions'];
+  public displayedColumns: string[] = [
+    'title',
+    'date',
+    'person',
+    'status',
+    'actions',
+  ];
 
-  currentUser: User | null = null;
-  UserRole = UserRole;
-  AppointmentStatus = AppointmentStatus;
+  public currentUser: User | null = null;
+  public readonly UserRole = UserRole;
+  public readonly AppointmentStatus = AppointmentStatus;
 
   private appointmentService = inject(AppointmentService);
   private authService = inject(AuthService);
 
-  ngOnInit(): void {
+  // Track function to improve performance
+  public trackByAppointmentId(index: number, item: Appointment): string {
+    return item.id;
+  }
+
+  public ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
     this.loadAppointments();
   }
-  loadAppointments(): void {
+
+  private loadAppointments(): void {
     if (!this.currentUser) return;
 
     this.appointmentService
@@ -305,8 +323,6 @@ export class AppointmentListComponent implements OnInit {
         this.appointments = appointments;
 
         const now = new Date();
-
-        // Split appointments into upcoming and past
         this.upcomingAppointments = appointments
           .filter((app: Appointment) => new Date(app.startTime) > now)
           .sort(
@@ -322,8 +338,7 @@ export class AppointmentListComponent implements OnInit {
           );
       });
   }
-
-  getPersonName(appointment: Appointment): string {
+  public getPersonName(appointment: Appointment): string {
     if (!this.currentUser) return '';
 
     // If current user is a doctor, show patient name
@@ -334,7 +349,8 @@ export class AppointmentListComponent implements OnInit {
     // If current user is a patient, show doctor name
     return `Dr. #${appointment.doctorId}`;
   }
-  getStatusClass(status: AppointmentStatus): string {
+
+  public getStatusClass(status: AppointmentStatus): string {
     switch (status) {
       case AppointmentStatus.CONFIRMED:
         return 'bg-blue-100 text-blue-800';
@@ -348,7 +364,7 @@ export class AppointmentListComponent implements OnInit {
         return '';
     }
   }
-  getStatusColor(status: AppointmentStatus): string {
+  public getStatusColor(status: AppointmentStatus): string {
     switch (status) {
       case AppointmentStatus.CONFIRMED:
         return 'primary'; // Blue
@@ -363,11 +379,10 @@ export class AppointmentListComponent implements OnInit {
     }
   }
 
-  updateStatus(appointmentId: string, status: AppointmentStatus): void {
+  public updateStatus(appointmentId: string, status: AppointmentStatus): void {
     this.appointmentService
       .updateAppointmentStatus(appointmentId, status)
       .subscribe(() => {
-        // Refresh appointments after status update
         this.loadAppointments();
       });
   }

@@ -20,7 +20,7 @@ export class AppointmentService {
   private apiUrl = `${environment.apiUrl}/appointments`;
 
   constructor(private http: HttpClient, private authService: AuthService) {}
-  getAllAppointments(): Observable<Appointment[]> {
+  public getAllAppointments(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(this.apiUrl).pipe(
       catchError((error) => {
         console.error('Error fetching all appointments', error);
@@ -31,7 +31,7 @@ export class AppointmentService {
       })
     );
   }
-  getAppointmentsByUser(userId: string): Observable<Appointment[]> {
+  public getAppointmentsByUser(userId: string): Observable<Appointment[]> {
     const currentUser = this.authService.currentUserSubject.value;
 
     if (!currentUser) {
@@ -48,10 +48,6 @@ export class AppointmentService {
         })
       );
     }
-
-    // If user is a doctor, get appointments where they're the doctor
-    // If user is a patient, get appointments where they're the patient
-    // If user is an admin, get all appointments
     if (currentUser.role === UserRole.DOCTOR) {
       return this.http
         .get<Appointment[]>(`${this.apiUrl}/doctor/${userId}`)
@@ -90,7 +86,7 @@ export class AppointmentService {
       return this.getAllAppointments();
     }
   }
-  getAppointmentById(id: string): Observable<Appointment> {
+  public getAppointmentById(id: string): Observable<Appointment> {
     return this.http.get<Appointment>(`${this.apiUrl}/${id}`).pipe(
       catchError((error) => {
         console.error(`Error fetching appointment with id ${id}`, error);
@@ -103,10 +99,9 @@ export class AppointmentService {
       })
     );
   }
-  createAppointment(
+  public createAppointment(
     appointment: Partial<Appointment>
   ): Observable<Appointment> {
-    // Create the appointmentDto object to match the API's expectation
     const appointmentDto: CreateAppointmentDto = {
       title: appointment.title!,
       patientId: appointment.patientId!,
@@ -130,22 +125,17 @@ export class AppointmentService {
       })
     );
   }
-  updateAppointment(
+  public updateAppointment(
     id: string,
     appointment: Partial<Appointment>
   ): Observable<Appointment> {
-    // Create a DTO object for the API
     const updateDto: UpdateAppointmentDto = {};
-
-    // Only include properties that are defined
     if (appointment.title !== undefined) updateDto.title = appointment.title;
     if (appointment.startTime !== undefined)
       updateDto.startTime = appointment.startTime;
     if (appointment.endTime !== undefined)
       updateDto.endTime = appointment.endTime;
     if (appointment.notes !== undefined) updateDto.notes = appointment.notes;
-
-    // Map the status if present - make sure it's a number for the backend
     if (appointment.status !== undefined) {
       updateDto.status = appointment.status;
     }
@@ -161,7 +151,7 @@ export class AppointmentService {
     );
   }
 
-  deleteAppointment(id: string): Observable<void> {
+  public deleteAppointment(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
       catchError((error) => {
         console.error(`Error deleting appointment with id ${id}`, error);
@@ -172,7 +162,7 @@ export class AppointmentService {
       })
     );
   }
-  updateAppointmentStatus(
+  public updateAppointmentStatus(
     id: string,
     status: AppointmentStatus
   ): Observable<Appointment> {
@@ -194,10 +184,8 @@ export class AppointmentService {
         })
       );
   }
-
-  // Helper method to map string status to numeric enum for backend
   private mapStatusToNumber(status?: AppointmentStatus): number {
-    if (status === undefined) return 0; // Default to Pending (0)
+    if (status === undefined) return 0;
 
     switch (status) {
       case AppointmentStatus.PENDING:
@@ -209,13 +197,12 @@ export class AppointmentService {
       case AppointmentStatus.COMPLETED:
         return 3;
       default:
-        // Ensure all cases are handled, or provide a default for exhaustiveness
         const exhaustiveCheck: never = status;
         return exhaustiveCheck;
     }
   }
 
-  getUpcomingAppointments(): Observable<Appointment[]> {
+  public getUpcomingAppointments(): Observable<Appointment[]> {
     const params = new HttpParams().set('upcoming', 'true');
     return this.http.get<Appointment[]>(this.apiUrl, { params }).pipe(
       catchError((error) => {
@@ -230,7 +217,7 @@ export class AppointmentService {
     );
   }
 
-  getTodaysAppointments(): Observable<Appointment[]> {
+  public getTodaysAppointments(): Observable<Appointment[]> {
     const params = new HttpParams().set('today', 'true');
     return this.http.get<Appointment[]>(this.apiUrl, { params }).pipe(
       catchError((error) => {
@@ -244,7 +231,7 @@ export class AppointmentService {
       })
     );
   }
-  getAppointmentsByDateRange(
+  public getAppointmentsByDateRange(
     startDate: Date,
     endDate: Date
   ): Observable<Appointment[]> {
@@ -266,8 +253,6 @@ export class AppointmentService {
       })
     );
   }
-
-  // Helper method to convert status values to match the API's expectations
   private getApiStatusValue(status: AppointmentStatus): number {
     return Number(status);
   }

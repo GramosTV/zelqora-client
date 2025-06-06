@@ -13,8 +13,7 @@ import { ToastrService } from 'ngx-toastr';
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
   constructor(private toastr: ToastrService) {}
-
-  intercept(
+  public intercept(
     request: HttpRequest<unknown>,
     next: HttpHandler
   ): Observable<HttpEvent<unknown>> {

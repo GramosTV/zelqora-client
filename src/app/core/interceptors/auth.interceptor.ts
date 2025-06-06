@@ -13,17 +13,14 @@ import { AuthService } from '../services/auth.service';
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   constructor(private authService: AuthService) {}
-
-  intercept(
+  public intercept(
     request: HttpRequest<unknown>,
     next: HttpHandler
   ): Observable<HttpEvent<unknown>> {
-    // Don't add token for login/register requests
     if (request.url.includes('login') || request.url.includes('register')) {
       return next.handle(request);
     }
 
-    // Add token to authenticated requests
     const token = this.authService.getAccessToken();
     if (token) {
       request = this.addToken(request, token);
@@ -49,7 +46,6 @@ export class AuthInterceptor implements HttpInterceptor {
       },
     });
   }
-
   private handle401Error(
     request: HttpRequest<unknown>,
     next: HttpHandler
@@ -58,10 +54,10 @@ export class AuthInterceptor implements HttpInterceptor {
       switchMap((tokens) => {
         return next.handle(this.addToken(request, tokens.accessToken));
       }),
-      catchError((error) => {
+      catchError((_error) => {
         // If refresh fails, logout and redirect to login
         this.authService.logout();
-        return throwError(() => error);
+        return throwError(() => _error);
       })
     );
   }

@@ -1,4 +1,10 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,8 +15,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
 import { RouterModule } from '@angular/router';
-import { Subscription } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { take, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { MessageService } from '../../core/services/message.service';
@@ -27,6 +33,7 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     MatCardModule,
@@ -159,7 +166,8 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
             <div
               *ngFor="
                 let appointment of upcomingAppointments.slice(0, 3);
-                let last = last
+                let last = last;
+                trackBy: trackByAppointmentId
               "
               class="py-4 hover:bg-gray-50 transition-colors rounded px-2"
               [class.border-b]="!last"
@@ -316,9 +324,11 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
                 View all reminders →
               </a>
             </div>
-
             <div
-              *ngFor="let reminder of upcomingReminders"
+              *ngFor="
+                let reminder of upcomingReminders;
+                trackBy: trackByReminderId
+              "
               class="py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-2 transition-colors"
               [ngClass]="{ 'bg-blue-50': !reminder.isRead }"
             >
@@ -489,66 +499,60 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
   `,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  currentUser: User | null = null;
-  welcomeMessage: string = '';
-  upcomingAppointments: Appointment[] = [];
-  completedAppointments: Appointment[] = [];
-  pendingAppointments: Appointment[] = [];
-  cancelledAppointments: Appointment[] = [];
-  unreadMessages: number = 0;
-  unreadReminders: number = 0;
-  upcomingReminders: Reminder[] = [];
+  public currentUser: User | null = null;
+  public welcomeMessage: string = '';
+  public upcomingAppointments: Appointment[] = [];
+  public completedAppointments: Appointment[] = [];
+  public pendingAppointments: Appointment[] = [];
+  public cancelledAppointments: Appointment[] = [];
+  public unreadMessages: number = 0;
+  public unreadReminders: number = 0;
+  public upcomingReminders: Reminder[] = [];
 
-  isDoctor: boolean = false;
-  isPatient: boolean = false;
-  isAdmin: boolean = false;
+  public isDoctor: boolean = false;
+  public isPatient: boolean = false;
+  public isAdmin: boolean = false;
+  private readonly destroy$ = new Subject<void>();
 
-  // Track subscriptions for cleanup
-  private subscriptions: Subscription[] = [];
-
-  // Make AppointmentStatus available to the template
-  AppointmentStatus = AppointmentStatus;
-  getAppointmentStatusString = getAppointmentStatusString;
+  public readonly AppointmentStatus = AppointmentStatus;
+  public readonly getAppointmentStatusString = getAppointmentStatusString;
 
   constructor(
-    private authService: AuthService,
-    private appointmentService: AppointmentService,
-    private messageService: MessageService,
-    private reminderService: ReminderService,
-    private userService: UserService
+    private readonly authService: AuthService,
+    private readonly appointmentService: AppointmentService,
+    private readonly messageService: MessageService,
+    private readonly reminderService: ReminderService,
+    private readonly userService: UserService,
+    private readonly cdr: ChangeDetectorRef
   ) {}
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
 
     if (this.currentUser) {
       this.isDoctor = this.currentUser.role === UserRole.DOCTOR;
       this.isPatient = this.currentUser.role === UserRole.PATIENT;
       this.isAdmin = this.currentUser.role === UserRole.ADMIN;
-
-      // Set welcome message based on role
       this.setWelcomeMessage();
+      this.loadAppointments();
 
-      // Load appointments
-      this.loadAppointments(); // Load unread messages count - one-time load
-      const messageSub = this.messageService
+      this.messageService
         .getUnreadMessages(this.currentUser.id)
-        .pipe(take(1)) // Only take one result to avoid continuous polling
+        .pipe(take(1), takeUntil(this.destroy$))
         .subscribe((messages) => {
           this.unreadMessages = messages.length;
+          this.cdr.markForCheck();
         });
-      this.subscriptions.push(messageSub); // Create a test reminder only if needed (one-time operation)
+
       if (this.upcomingReminders.length === 0) {
         this.createTestReminder();
       }
 
-      // Load reminders information
-      this.loadReminders(); // Subscribe to reminder updates to update the UI directly without making additional API calls
-      const reminderSub = this.reminderService.reminders$.subscribe({
+      this.loadReminders();
+
+      this.reminderService.reminders$.pipe(takeUntil(this.destroy$)).subscribe({
         next: (reminders) => {
-          // Update unread count
           this.unreadReminders = reminders.filter((r) => !r.isRead).length;
 
-          // Update upcoming reminders display
           const now = new Date();
           const oneWeekLater = new Date();
           oneWeekLater.setDate(now.getDate() + 7);
@@ -570,16 +574,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
             })
             .sort((a, b) => a.reminderDate.getTime() - b.reminderDate.getTime())
             .slice(0, 3); // Take only the 3 most imminent reminders
+
+          this.cdr.markForCheck();
         },
         error: (err) => console.error('Error from reminders$ observable:', err),
       });
-      this.subscriptions.push(reminderSub);
     }
   }
-
-  ngOnDestroy(): void {
-    // Clean up subscriptions to prevent memory leaks
-    this.subscriptions.forEach((sub) => sub.unsubscribe());
+  public ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private setWelcomeMessage(): void {
@@ -605,13 +609,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private loadAppointments(): void {
     if (!this.currentUser) return;
 
-    const appointmentSub = this.appointmentService
+    this.appointmentService
       .getAppointmentsByUser(this.currentUser.id)
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (appointments) => {
           const now = new Date();
-
-          // Filter appointments by status
           this.upcomingAppointments = appointments.filter(
             (app) =>
               new Date(app.startTime) > now &&
@@ -630,41 +633,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.cancelledAppointments = appointments.filter(
             (app) => app.status === AppointmentStatus.CANCELLED
           );
-
-          // Sort upcoming appointments by date (nearest first)
           this.upcomingAppointments.sort(
             (a, b) =>
               new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
           );
+
+          this.cdr.markForCheck();
         },
         error: (err) => {
           console.error('Error loading appointments:', err);
         },
       });
-
-    this.subscriptions.push(appointmentSub);
   }
-  loadReminders(): void {
+  public loadReminders(): void {
     if (!this.currentUser) return;
 
-    // Get unread reminders count - only once on initial load
-    // Further updates will come from the reminders$ subscription
-    const countSub = this.reminderService
+    this.reminderService
       .getUnreadRemindersCount()
-      .pipe(take(1))
+      .pipe(take(1), takeUntil(this.destroy$))
       .subscribe({
         next: (count) => {
           this.unreadReminders = count;
+          this.cdr.markForCheck();
         },
         error: (err) => {
           console.error('Error loading unread reminders count:', err);
           this.unreadReminders = 0;
         },
       });
-    this.subscriptions.push(countSub); // Get upcoming reminders for today and tomorrow
-    const remindersSub = this.reminderService
+    this.reminderService
       .getReminders()
-      .pipe(take(1)) // Only take one result to avoid continuous polling
+      .pipe(take(1), takeUntil(this.destroy$))
       .subscribe({
         next: (reminders) => {
           console.log('Reminders received:', reminders);
@@ -674,13 +673,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.createTestReminder();
             return;
           }
-
-          // Get next 7 days' reminders to ensure we have some content
           const now = new Date();
           const oneWeekLater = new Date();
           oneWeekLater.setDate(now.getDate() + 7);
 
-          // Ensure we're working with proper Date objects
           this.upcomingReminders = reminders
             .map((reminder) => ({
               ...reminder,
@@ -690,7 +686,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   : new Date(reminder.reminderDate),
             }))
             .filter((r) => {
-              // Show all reminders within the next week
               const reminderTime = r.reminderDate.getTime();
               return (
                 reminderTime >= now.getTime() &&
@@ -704,22 +699,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
             'Upcoming reminders after filtering:',
             this.upcomingReminders
           );
+
+          this.cdr.markForCheck();
         },
         error: (err) => {
           console.error('Error loading reminders:', err);
           this.upcomingReminders = [];
         },
       });
-    this.subscriptions.push(remindersSub);
   }
-  createTestReminder(): void {
+  public createTestReminder(): void {
     if (!this.currentUser) return;
-
-    // First check if we have any real appointments to use
     this.appointmentService.getUpcomingAppointments().subscribe({
       next: (appointments) => {
         if (appointments && appointments.length > 0) {
-          // Use real appointment IDs if available
           const now = new Date();
           const reminderDate = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
 
@@ -730,8 +723,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
               reminderDate
             )
             .subscribe();
-
-          // If we have a second appointment, use it for the second reminder
           if (appointments.length > 1) {
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
@@ -752,8 +743,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
     });
   }
+
+  // TrackBy functions for better performance
+  public trackByAppointmentId(index: number, appointment: Appointment): string {
+    return appointment.id;
+  }
+
+  public trackByReminderId(index: number, reminder: Reminder): string {
+    return reminder.id;
+  }
+
   // Helper method to format date relative to today
-  getRelativeDate(date: Date | string): string {
+  public getRelativeDate(date: Date | string): string {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -766,7 +767,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
 
-    // Check for different time ranges
     if (dateToCheck.getTime() === today.getTime()) {
       return 'Today';
     } else if (dateToCheck.getTime() === tomorrow.getTime()) {
@@ -777,10 +777,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       dateToCheck > today &&
       dateToCheck < new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
     ) {
-      // Within the next week
       return dateToCheck.toLocaleDateString('en-US', { weekday: 'long' });
     } else {
-      // Default formatting for dates beyond a week
       return dateToCheck.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
@@ -792,29 +790,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
     }
   }
+
   // Helper method to get formatted name for a doctor or patient
-  getPersonName(personId: string, isDoctor: boolean): string {
+  public getPersonName(personId: string, isDoctor: boolean): string {
     if (!personId) return 'Unknown';
 
     // In a real application, this would use a cache or state management
     // to avoid multiple API calls for the same user
-    this.userService.getUserById(personId).subscribe({
-      next: (user) => {
-        if (user) {
-          const fullName = `${user.firstName} ${user.lastName}`;
-          const displayName = isDoctor ? `Dr. ${fullName}` : fullName;
-          // We would update a cache or state here
-        }
-      },
-    });
-
-    // Return a temporary name while we wait for the API
+    // For now, return a simplified display name to avoid subscription issues in template
     return isDoctor
-      ? `Dr. ${personId.substring(0, 5)}`
-      : `Patient ${personId.substring(0, 5)}`;
+      ? `Dr. ${personId.substring(0, 8)}...`
+      : `Patient ${personId.substring(0, 8)}...`;
   }
 
-  getStatusClass(status: AppointmentStatus): string {
+  public getStatusClass(status: AppointmentStatus): string {
     if (status === undefined || status === null) return '';
     return `status-${getAppointmentStatusString(status).toLowerCase()}`;
   }

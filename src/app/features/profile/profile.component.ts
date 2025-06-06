@@ -1,4 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
@@ -22,6 +27,7 @@ import { getUserRoleString } from '../../core/utils/enum-helpers';
 @Component({
   selector: 'app-profile',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,
@@ -279,7 +285,6 @@ export class ProfileComponent implements OnInit {
   profileForm!: FormGroup;
   passwordForm!: FormGroup;
 
-  // Use inject for dependency injection
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private userService = inject(UserService);
@@ -303,8 +308,6 @@ export class ProfileComponent implements OnInit {
       specialization: [this.currentUser.specialization || ''],
       profilePicture: [this.currentUser.profilePicture || ''],
     });
-
-    // Add conditional validation for specialization
     if (this.isDoctor) {
       this.profileForm
         .get('specialization')
@@ -324,8 +327,6 @@ export class ProfileComponent implements OnInit {
       }
     );
   }
-
-  // Custom validator to check if password and confirm password match
   passwordMatchValidator(
     formGroup: FormGroup
   ): { passwordMismatch: boolean } | null {
@@ -351,7 +352,6 @@ export class ProfileComponent implements OnInit {
 
     this.userService.updateUser(this.currentUser.id, updatedUser).subscribe({
       next: (user) => {
-        // Update the current user in auth service (in a real app, this would be handled differently)
         localStorage.setItem('currentUser', JSON.stringify(user));
         this.currentUser = user;
         this.snackBar.open('Profile updated successfully', 'Close', {
@@ -376,9 +376,6 @@ export class ProfileComponent implements OnInit {
     }
 
     this.isSubmitting = true;
-
-    // In a real app, you would call an API to change the password
-    // Simulate API call with delay
     setTimeout(() => {
       this.snackBar.open('Password changed successfully', 'Close', {
         duration: 3000,

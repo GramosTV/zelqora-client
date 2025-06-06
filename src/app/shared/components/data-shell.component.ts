@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   ContentChild,
@@ -12,6 +13,7 @@ import { LoadingComponent } from './loading.component';
 @Component({
   selector: 'app-data-shell',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, LoadingComponent],
   template: `
     <ng-container *ngIf="isLoading">

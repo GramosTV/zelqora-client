@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -22,6 +22,7 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 @Component({
   selector: 'app-appointment-details',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -223,15 +224,15 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
   `,
 })
 export class AppointmentDetailsComponent implements OnInit {
-  appointmentId: string | null = null;
-  appointment: Appointment | null = null;
-  currentUser: User | null = null;
-  otherPerson: User | null = null;
-  isDoctor = false;
-  error: string | null = null;
+  public appointmentId: string | null = null;
+  public appointment: Appointment | null = null;
+  public currentUser: User | null = null;
+  public otherPerson: User | null = null;
+  public isDoctor = false;
+  public error: string | null = null;
 
-  AppointmentStatus = AppointmentStatus;
-  getAppointmentStatusString = getAppointmentStatusString;
+  public readonly AppointmentStatus = AppointmentStatus;
+  public readonly getAppointmentStatusString = getAppointmentStatusString;
 
   constructor(
     private route: ActivatedRoute,
@@ -239,8 +240,7 @@ export class AppointmentDetailsComponent implements OnInit {
     private authService: AuthService,
     private userService: UserService
   ) {}
-
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
     this.isDoctor = this.currentUser?.role === UserRole.DOCTOR;
 
@@ -252,7 +252,7 @@ export class AppointmentDetailsComponent implements OnInit {
     });
   }
 
-  loadAppointment(): void {
+  private loadAppointment(): void {
     if (!this.appointmentId) return;
 
     this.appointmentService.getAppointmentById(this.appointmentId).subscribe({
@@ -261,10 +261,8 @@ export class AppointmentDetailsComponent implements OnInit {
           this.error = 'Appointment not found';
           return;
         }
-
         this.appointment = appointment;
 
-        // Load the other person (doctor or patient)
         this.loadOtherPerson();
       },
       error: (err) => {
@@ -273,8 +271,7 @@ export class AppointmentDetailsComponent implements OnInit {
       },
     });
   }
-
-  loadOtherPerson(): void {
+  private loadOtherPerson(): void {
     if (!this.appointment || !this.currentUser) return;
 
     const otherId = this.isDoctor
@@ -290,8 +287,7 @@ export class AppointmentDetailsComponent implements OnInit {
       },
     });
   }
-
-  getStatusColor(status: AppointmentStatus): string {
+  public getStatusColor(status: AppointmentStatus): string {
     switch (status) {
       case AppointmentStatus.CONFIRMED:
         return 'primary'; // Blue
@@ -305,12 +301,11 @@ export class AppointmentDetailsComponent implements OnInit {
         return '';
     }
   }
-
-  getStatusClass(status: AppointmentStatus): string {
+  public getStatusClass(status: AppointmentStatus): string {
     return `status-${getAppointmentStatusString(status).toLowerCase()}`;
   }
 
-  updateStatus(status: AppointmentStatus): void {
+  public updateStatus(status: AppointmentStatus): void {
     if (!this.appointmentId) return;
 
     this.appointmentService

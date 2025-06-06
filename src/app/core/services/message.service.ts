@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { catchError, delay, map, tap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import {
   Message,
   CreateMessageDto,
@@ -22,19 +22,19 @@ export class MessageService {
     private authService: AuthService,
     private encryptionService: EncryptionService
   ) {}
-  getConversation(userId1: string, userId2: string): Observable<Message[]> {
-    // Call the API endpoint to get the conversation
+  public getConversation(
+    userId1: string,
+    userId2: string
+  ): Observable<Message[]> {
     return this.http
       .get<Message[]>(`${this.apiUrl}/conversation/${userId2}`)
       .pipe(
         map((messages) =>
           messages.map((message) => {
-            // Handle decryption if needed
             if (message.encrypted) {
               return {
                 ...message,
                 content: this.encryptionService.decrypt(message.content),
-                // Set encrypted to false since we're returning decrypted content
                 encrypted: false,
               };
             }
@@ -50,7 +50,7 @@ export class MessageService {
         })
       );
   }
-  getUserMessages(userId: string): Observable<Message[]> {
+  public getUserMessages(userId: string): Observable<Message[]> {
     return this.http.get<Message[]>(`${this.apiUrl}/user/${userId}`).pipe(
       catchError((error) => {
         console.error('Error fetching user messages', error);
@@ -61,7 +61,7 @@ export class MessageService {
     );
   }
 
-  getUnreadMessages(userId: string): Observable<Message[]> {
+  public getUnreadMessages(_userId: string): Observable<Message[]> {
     return this.http.get<Message[]>(`${this.apiUrl}/unread`).pipe(
       catchError((error) => {
         console.error('Error fetching unread messages', error);
@@ -72,7 +72,7 @@ export class MessageService {
       })
     );
   }
-  sendMessage(message: Partial<Message>): Observable<Message> {
+  public sendMessage(message: Partial<Message>): Observable<Message> {
     const currentUser = this.authService.getCurrentUser();
 
     if (!currentUser) {
@@ -80,36 +80,29 @@ export class MessageService {
         () => new Error('You must be logged in to send messages')
       );
     }
-
-    // Determine if this message should be encrypted
-    // We'll encrypt messages between doctors and patients for privacy
-    const shouldEncrypt = true; // In a real app, this could be based on message content or settings
-
-    // Original content before any encryption, for returning to the sender
+    const shouldEncrypt = true;
     const originalContent = message.content!;
 
-    // Encrypt content if required
     const content = shouldEncrypt
       ? this.encryptionService.encrypt(message.content!)
       : message.content!;
 
-    // Generate an integrity hash for the message
+    // Generate an integrity hash to verify message integrity
     const integrityHash = this.encryptionService.generateHash(message.content!);
 
     const messageDto: CreateMessageDto = {
       receiverId: message.receiverId!,
-      content: content,
+      content,
       encrypted: shouldEncrypt,
-      integrityHash: integrityHash,
+      integrityHash,
     };
 
     return this.http.post<Message>(this.apiUrl, messageDto).pipe(
       map((response) => {
-        // Return with the original content to immediately display to the sender
         return {
           ...response,
           content: originalContent,
-          encrypted: false, // Set to false since we're returning the decrypted content
+          encrypted: false,
         };
       }),
       catchError((error) => {
@@ -120,7 +113,7 @@ export class MessageService {
       })
     );
   }
-  markAsRead(messageId: string): Observable<Message> {
+  public markAsRead(messageId: string): Observable<Message> {
     const updateDto: UpdateMessageDto = {
       read: true,
     };
@@ -140,7 +133,7 @@ export class MessageService {
       );
   }
 
-  deleteMessage(messageId: string): Observable<boolean> {
+  public deleteMessage(messageId: string): Observable<boolean> {
     return this.http.delete<void>(`${this.apiUrl}/${messageId}`).pipe(
       map(() => true),
       catchError((error) => {

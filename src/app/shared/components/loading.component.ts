@@ -1,9 +1,10 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-loading',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <div
@@ -25,6 +26,6 @@ import { CommonModule } from '@angular/common';
   ],
 })
 export class LoadingComponent {
-  @Input() message = 'Loading...';
-  @Input() fullHeight = false;
+  @Input() public message = 'Loading...';
+  @Input() public fullHeight = false;
 }

@@ -19,7 +19,7 @@ export class RefreshTokenService {
 
   constructor(private http: HttpClient, private tokenService: TokenService) {}
 
-  refreshToken(): Observable<TokenResponse> {
+  public refreshToken(): Observable<TokenResponse> {
     const refreshToken = this.tokenService.getRefreshToken();
 
     if (!refreshToken) {
@@ -33,7 +33,6 @@ export class RefreshTokenService {
           this.tokenService.saveTokens(tokens.accessToken, tokens.refreshToken);
         }),
         catchError((error) => {
-          // Clear tokens on refresh failure
           this.tokenService.removeTokens();
           return throwError(() => error);
         })

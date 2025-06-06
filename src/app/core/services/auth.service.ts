@@ -1,14 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import {
   User,
   UserRole,
   UserRegistrationDto,
   UserLoginDto,
-  RefreshTokenDto,
-  ChangePasswordDto,
 } from '../models/user.model';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
@@ -60,32 +58,27 @@ export class AuthService {
   private loadUserFromToken(token: string): void {
     const decodedToken = this.tokenService.decodeToken(token);
     if (decodedToken) {
-      // Check if we have the user info in localStorage
       const userJson = localStorage.getItem('currentUser');
       if (userJson) {
         try {
           const user = JSON.parse(userJson);
           this.currentUserSubject.next(user);
-          // Still fetch the latest user info in the background
           this.getUserProfile(
             decodedToken.sub || decodedToken.nameid || decodedToken.userId
           ).subscribe();
-        } catch (e) {
-          // JSON parse error, fetch the user profile
+        } catch (_e) {
           this.getUserProfile(
             decodedToken.sub || decodedToken.nameid || decodedToken.userId
           ).subscribe();
         }
       } else {
-        // Fetch the user details using the decoded token information
-        // In .NET Core JWT tokens, the user ID is often stored in 'sub', 'nameid' or 'userId'
         this.getUserProfile(
           decodedToken.sub || decodedToken.nameid || decodedToken.userId
         ).subscribe();
       }
     }
   }
-  getUserProfile(userId: string): Observable<User> {
+  public getUserProfile(userId: string): Observable<User> {
     return this.http.get<User>(`${environment.apiUrl}/users/${userId}`).pipe(
       tap((user) => {
         this.currentUserSubject.next(user);
@@ -100,7 +93,7 @@ export class AuthService {
       })
     );
   }
-  login(email: string, password: string): Observable<User> {
+  public login(email: string, password: string): Observable<User> {
     const loginDto: UserLoginDto = { email, password };
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, loginDto).pipe(
       tap((response) => {
@@ -120,9 +113,7 @@ export class AuthService {
       })
     );
   }
-  register(userData: UserRegistrationDto): Observable<User> {
-    // Create a proper registration DTO that matches the backend expectations
-    // The incoming userData is already a UserRegistrationDto
+  public register(userData: UserRegistrationDto): Observable<User> {
     const registrationData: UserRegistrationDto = {
       email: userData.email,
       password: userData.password,
@@ -156,24 +147,22 @@ export class AuthService {
       );
   }
 
-  logout(): void {
-    // Call the API to invalidate the refresh token on the server
+  public logout(): void {
     this.http.post<void>(`${this.apiUrl}/logout`, {}).subscribe({
       next: () => this.clearAuthData(),
       error: () => this.clearAuthData(),
     });
   }
   private clearAuthData(): void {
-    this.tokenService.removeTokens(); // This handles access and refresh tokens
+    this.tokenService.removeTokens();
     localStorage.removeItem('currentUser');
     this.stopRefreshTokenTimer();
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth/login']);
   }
-  refreshToken(): Observable<TokenResponse> {
+  public refreshToken(): Observable<TokenResponse> {
     return this.refreshTokenService.refreshToken().pipe(
-      tap((tokens) => {
-        // Only start the refresh token timer here
+      tap((_tokens) => {
         this.startRefreshTokenTimer();
       }),
       catchError((error) => {
@@ -182,27 +171,21 @@ export class AuthService {
       })
     );
   }
-  getAccessToken(): string | null {
+  public getAccessToken(): string | null {
     return this.tokenService.getAccessToken();
   }
 
-  getRefreshToken(): string | null {
+  public getRefreshToken(): string | null {
     return this.tokenService.getRefreshToken();
   }
   private startRefreshTokenTimer(): void {
     const token = this.getAccessToken();
     if (!token) return;
-
     try {
-      // Get token expiration from TokenService
       const decodedToken = this.tokenService.decodeToken(token);
       if (!decodedToken || !decodedToken.exp) return;
-
-      // Calculate expiration date from JWT exp claim (seconds since epoch)
       const expires = new Date(decodedToken.exp * 1000);
       if (!expires) return;
-
-      // Set refresh timer to occur 30 seconds before token expires
       const timeout = expires.getTime() - Date.now() - 30 * 1000;
       this.stopRefreshTokenTimer();
       this.refreshTokenTimeout = setTimeout(() => {
@@ -218,7 +201,7 @@ export class AuthService {
       clearTimeout(this.refreshTokenTimeout);
     }
   }
-  forgotPassword(email: string): Observable<any> {
+  public forgotPassword(email: string): Observable<any> {
     return this.http
       .post<any>(`${this.apiUrl}/request-password-reset`, {
         email,
@@ -237,7 +220,7 @@ export class AuthService {
       );
   }
 
-  resetPassword(token: string, password: string): Observable<any> {
+  public resetPassword(token: string, password: string): Observable<any> {
     return this.http
       .post<any>(`${this.apiUrl}/reset-password`, {
         token,
@@ -257,15 +240,15 @@ export class AuthService {
       );
   }
 
-  isLoggedIn(): boolean {
+  public isLoggedIn(): boolean {
     return !!this.currentUserSubject.value;
   }
 
-  getCurrentUser(): User | null {
+  public getCurrentUser(): User | null {
     return this.currentUserSubject.value;
   }
 
-  hasRole(role: UserRole): boolean {
+  public hasRole(role: UserRole): boolean {
     const currentUser = this.currentUserSubject.value;
     return !!currentUser && currentUser.role === role;
   }

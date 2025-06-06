@@ -1,4 +1,11 @@
-import { Component, inject, ViewChild, OnInit } from '@angular/core';
+import {
+  Component,
+  inject,
+  ViewChild,
+  OnInit,
+  OnDestroy,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -14,13 +21,14 @@ import { AuthService } from '../../core/services/auth.service';
 import { MessageService } from '../../core/services/message.service';
 import { ReminderService } from '../../core/services/reminder.service';
 import { User, UserRole } from '../../core/models/user.model';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, Subject, combineLatest } from 'rxjs';
+import { take, takeUntil, map } from 'rxjs/operators';
 import { getUserRoleString } from '../../core/utils/enum-helpers';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -124,7 +132,7 @@ import { getUserRoleString } from '../../core/utils/enum-helpers';
               </div>
               <button
                 mat-menu-item
-                *ngFor="let reminder of reminders"
+                *ngFor="let reminder of reminders; trackBy: trackByReminderId"
                 class="flex flex-col items-start p-3"
                 [ngClass]="{
                   'bg-blue-50': !reminder.isRead,
@@ -383,80 +391,99 @@ import { getUserRoleString } from '../../core/utils/enum-helpers';
     `,
   ],
 })
-export class LayoutComponent implements OnInit {
-  @ViewChild('sidenav') sidenav!: MatSidenav;
+export class LayoutComponent implements OnInit, OnDestroy {
+  @ViewChild('sidenav') public sidenav!: MatSidenav;
 
-  private authService = inject(AuthService);
-  private messageService = inject(MessageService);
-  private reminderService = inject(ReminderService);
-  private router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly messageService = inject(MessageService);
+  private readonly reminderService = inject(ReminderService);
+  private readonly router = inject(Router);
+  private readonly destroy$ = new Subject<void>();
 
-  // Make UserRole available to the template
-  UserRole = UserRole;
-  getUserRoleString = getUserRoleString;
+  public readonly UserRole = UserRole;
+  public readonly getUserRoleString = getUserRoleString;
 
-  currentUser$: Observable<User | null>;
-  isAdmin$: Observable<boolean>;
-  unreadMessageCount: number = 0;
-  unreadReminderCount: number = 0;
-  reminders: any[] = [];
+  public readonly currentUser$: Observable<User | null>;
+  public readonly isAdmin$: Observable<boolean>;
+  public unreadMessageCount: number = 0;
+  public unreadReminderCount: number = 0;
+  public reminders: any[] = [];
 
   constructor() {
     this.currentUser$ = this.authService.currentUser$;
-
-    // Check if user is admin
-    this.isAdmin$ = new Observable<boolean>((observer) => {
-      this.authService.currentUser$.subscribe((user) => {
-        observer.next(!!user && user.role === UserRole.ADMIN);
-      });
-    });
+    this.isAdmin$ = this.currentUser$.pipe(
+      map((user) => !!user && user.role === UserRole.ADMIN)
+    );
   }
-  ngOnInit(): void {
-    // Get unread message count - one-time load when the component initializes
-    this.authService.currentUser$.subscribe((user) => {
+  public ngOnInit(): void {
+    this.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       if (user) {
-        this.messageService
-          .getUnreadMessages(user.id)
-          .pipe(take(1)) // Only take one result to avoid continuous polling
-          .subscribe((messages) => {
-            this.unreadMessageCount = messages.length;
-          }); // Get unread reminders count and subscribe to future updates
-        this.refreshReminders();
-
-        // Just subscribe to the reminders BehaviorSubject instead of making additional API calls
-        this.reminderService.reminders$.subscribe((reminders) => {
-          this.reminders = reminders;
-          // Calculate the unread count from the current reminders
-          this.unreadReminderCount = reminders.filter((r) => !r.isRead).length;
-        });
+        this.loadUserMessages(user.id);
+        this.loadUserReminders();
       } else {
-        this.unreadMessageCount = 0;
-        this.unreadReminderCount = 0;
-        this.reminders = [];
+        this.resetCounts();
       }
     });
   }
-  logout(): void {
+
+  public ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+  public trackByReminderId(_index: number, reminder: any): string {
+    return reminder.id;
+  }
+
+  public logout(): void {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
   }
-  markReminderRead(id: string): void {
-    // The markAsRead method in the service already updates the BehaviorSubject
-    // which will trigger our subscription to reminders$ and update the UI
-    this.reminderService.markAsRead(id).subscribe();
+
+  public markReminderRead(id: string): void {
+    this.reminderService
+      .markAsRead(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
   }
 
-  markAllRemindersRead(event: Event): void {
-    // Prevent menu from closing
+  public markAllRemindersRead(event: Event): void {
     event.stopPropagation();
-
-    // The markAllAsRead method in the service already updates the BehaviorSubject
-    // which will trigger our subscription to reminders$ and update the UI
-    this.reminderService.markAllAsRead().subscribe();
+    this.reminderService
+      .markAllAsRead()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
   }
-  refreshReminders(): void {
-    // Just update reminders once - this will trigger our subscription
-    // to reminderService.reminders$ which will handle updating the UI
-    this.reminderService.getReminders().subscribe();
+
+  public refreshReminders(): void {
+    this.reminderService
+      .getReminders()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
+  }
+
+  private loadUserMessages(userId: string): void {
+    this.messageService
+      .getUnreadMessages(userId)
+      .pipe(take(1), takeUntil(this.destroy$))
+      .subscribe((messages) => {
+        this.unreadMessageCount = messages.length;
+      });
+  }
+
+  private loadUserReminders(): void {
+    this.refreshReminders();
+
+    this.reminderService.reminders$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((reminders) => {
+        this.reminders = reminders;
+        this.unreadReminderCount = reminders.filter((r) => !r.isRead).length;
+      });
+  }
+
+  private resetCounts(): void {
+    this.unreadMessageCount = 0;
+    this.unreadReminderCount = 0;
+    this.reminders = [];
   }
 }

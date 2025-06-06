@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -7,7 +7,7 @@ import {
 } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { UserRole, UserRegistrationDto } from '../../core/models/user.model'; // Corrected import
+import { UserRole, UserRegistrationDto } from '../../core/models/user.model';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -20,6 +20,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-register',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,
@@ -213,7 +214,7 @@ export class RegisterComponent {
   registerForm: FormGroup;
   isLoading = false;
   errorMessage = '';
-  UserRole = UserRole; // Expose enum to template
+  UserRole = UserRole;
 
   constructor(
     private formBuilder: FormBuilder,
@@ -235,7 +236,6 @@ export class RegisterComponent {
       }
     );
 
-    // Add conditional validation for specialization field
     this.registerForm.get('role')?.valueChanges.subscribe((role) => {
       const specializationControl = this.registerForm.get('specialization');
 
@@ -249,7 +249,6 @@ export class RegisterComponent {
     });
   }
 
-  // Custom validator to check if password and confirm password match
   passwordMatchValidator(formGroup: FormGroup) {
     const password = formGroup.get('password')?.value;
     const confirmPassword = formGroup.get('confirmPassword')?.value;
@@ -269,10 +268,8 @@ export class RegisterComponent {
 
     this.isLoading = true;
     this.errorMessage = '';
-
     const { firstName, lastName, email, password, role, specialization } =
       this.registerForm.value;
-    // Construct UserRegistrationDto from form values
     const registrationDto: UserRegistrationDto = {
       email,
       password,
@@ -281,18 +278,15 @@ export class RegisterComponent {
       role,
       specialization: role === UserRole.DOCTOR ? specialization : undefined,
     };
-
-    this.authService
-      .register(registrationDto) // Pass the DTO object
-      .subscribe({
-        next: () => {
-          this.router.navigate(['/dashboard']);
-        },
-        error: (err) => {
-          this.errorMessage =
-            err.message || 'Failed to register. Please try again.';
-          this.isLoading = false;
-        },
-      });
+    this.authService.register(registrationDto).subscribe({
+      next: () => {
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.errorMessage =
+          err.message || 'Failed to register. Please try again.';
+        this.isLoading = false;
+      },
+    });
   }
 }

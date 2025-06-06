@@ -26,16 +26,16 @@ export interface CreateAppointmentDto {
   title: string;
   patientId: string;
   doctorId: string;
-  startTime: Date | string; // Keep as Date | string for flexibility, service will handle conversion
-  endTime: Date | string; // Keep as Date | string for flexibility, service will handle conversion
+  startTime: Date | string;
+  endTime: Date | string;
   status: AppointmentStatus;
   notes?: string;
 }
 
 export interface UpdateAppointmentDto {
   title?: string;
-  startTime?: Date | string; // Keep as Date | string for flexibility, service will handle conversion
-  endTime?: Date | string; // Keep as Date | string for flexibility, service will handle conversion
+  startTime?: Date | string;
+  endTime?: Date | string;
   status?: AppointmentStatus;
   notes?: string;
 }

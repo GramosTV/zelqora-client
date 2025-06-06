@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,6 +23,7 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
 @Component({
   selector: 'app-appointment-reminders',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     MatCardModule,
@@ -188,7 +189,13 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
             *ngIf="!isLoading && reminders.length > 0"
             class="reminder-list"
           >
-            <ng-container *ngFor="let reminder of reminders; let last = last">
+            <ng-container
+              *ngFor="
+                let reminder of reminders;
+                let last = last;
+                trackBy: trackByReminderId
+              "
+            >
               <mat-list-item
                 class="py-3"
                 [ngClass]="{
@@ -296,30 +303,29 @@ import { getAppointmentStatusString } from '../../core/utils/enum-helpers';
   `,
 })
 export class AppointmentRemindersComponent implements OnInit {
-  reminders: Reminder[] = [];
-  allReminders: Reminder[] = []; // Store all reminders for filtering
-  appointments: { [key: string]: Appointment } = {};
-  isLoading: boolean = true;
+  public reminders: Reminder[] = [];
+  public allReminders: Reminder[] = [];
+  public appointments: Record<string, Appointment> = {};
+  public isLoading: boolean = true;
 
-  // Filter options
-  selectedFilter: 'all' | 'unread' | 'upcoming' = 'all';
-  selectedSort: 'newest' | 'oldest' = 'newest';
+  public selectedFilter: 'all' | 'unread' | 'upcoming' = 'all';
+  public selectedSort: 'newest' | 'oldest' = 'newest';
 
-  // For easy access in template
-  AppointmentStatus = AppointmentStatus;
+  public readonly AppointmentStatus = AppointmentStatus;
+
+  public trackByReminderId(index: number, item: Reminder): string {
+    return item.id;
+  }
 
   constructor(
     private reminderService: ReminderService,
     private appointmentService: AppointmentService
   ) {}
-  // Add the helper function to the component scope for template access
-  getAppointmentStatusString = getAppointmentStatusString;
 
-  ngOnInit(): void {
+  public readonly getAppointmentStatusString = getAppointmentStatusString;
+  public ngOnInit(): void {
     this.loadReminders();
 
-    // Subscribe to reminders observable to get real-time updates
-    // Use the reminders directly from the BehaviorSubject without making additional API calls
     this.reminderService.reminders$.subscribe((reminders) => {
       if (reminders.length > 0) {
         this.allReminders = reminders;
@@ -328,28 +334,20 @@ export class AppointmentRemindersComponent implements OnInit {
       }
     });
   }
-  loadReminders(): void {
+  private loadReminders(): void {
     this.isLoading = true;
 
-    // Initial load of reminders - this will trigger the reminderService.reminders$ subscription
-    // which will handle updating the component data
     this.reminderService.getReminders().subscribe(
-      () => {
-        // This intentionally doesn't do anything with the direct response
-        // as we're handling reminders via the BehaviorSubject subscription instead
-      },
+      () => {},
       (error) => {
         console.error('Error loading reminders:', error);
         this.isLoading = false;
       }
     );
   }
+  private loadAppointmentsForReminders(): void {
+    // Reset appointments cache when reloading    this.appointments = {};
 
-  loadAppointmentsForReminders(): void {
-    // Reset appointments cache when reloading
-    this.appointments = {};
-
-    // Load appointment details for each reminder
     const appointmentIds = [
       ...new Set(this.allReminders.map((r) => r.appointmentId)),
     ];
@@ -367,7 +365,6 @@ export class AppointmentRemindersComponent implements OnInit {
             this.appointments[id] = appointment;
           }
 
-          // Mark as loaded when all appointments are fetched
           loadedCount++;
           if (loadedCount === appointmentIds.length) {
             this.isLoading = false;
@@ -382,12 +379,11 @@ export class AppointmentRemindersComponent implements OnInit {
       });
     });
   }
-
-  getAppointment(id: string): Appointment | undefined {
+  public getAppointment(id: string): Appointment | undefined {
     return this.appointments[id];
   }
 
-  getReminderDateFormatted(reminder: Reminder): string {
+  public getReminderDateFormatted(reminder: Reminder): string {
     const appointment = this.appointments[reminder.appointmentId];
     if (!appointment) return '';
 
@@ -400,35 +396,26 @@ export class AppointmentRemindersComponent implements OnInit {
       minute: '2-digit',
     });
   }
-  markAsRead(id: string): void {
+  public markAsRead(id: string): void {
     // The markAsRead method in the service already updates the BehaviorSubject
     // which will trigger our subscription and update the UI
     this.reminderService.markAsRead(id).subscribe();
   }
-
-  markAllAsRead(): void {
-    // The markAllAsRead method in the service already updates the BehaviorSubject
-    // which will trigger our subscription and update the UI
+  public markAllAsRead(): void {
     this.reminderService.markAllAsRead().subscribe();
   }
 
-  deleteReminder(id: string): void {
-    // The deleteReminder method in the service already updates the BehaviorSubject
-    // which will trigger our subscription and update the UI
+  public deleteReminder(id: string): void {
     this.reminderService.deleteReminder(id).subscribe();
   }
-
-  applyFilters(): void {
+  private applyFilters(): void {
     let filteredReminders = [...this.allReminders];
-
-    // Apply filter based on selected option
+    const now = new Date();
     switch (this.selectedFilter) {
       case 'unread':
         filteredReminders = filteredReminders.filter((r) => !r.isRead);
         break;
       case 'upcoming':
-        // Filter only upcoming reminders (reminder date is in the future)
-        const now = new Date();
         filteredReminders = filteredReminders.filter(
           (r) => new Date(r.reminderDate) > now
         );
@@ -453,14 +440,13 @@ export class AppointmentRemindersComponent implements OnInit {
 
     this.reminders = filteredReminders;
   }
-
   // Method to handle filter change
-  onFilterChange(): void {
+  public onFilterChange(): void {
     this.applyFilters();
   }
 
   // Method to get status class for appointment
-  getStatusClass(appointmentId: string): string {
+  public getStatusClass(appointmentId: string): string {
     const appointment = this.appointments[appointmentId];
     if (!appointment) return '';
 
